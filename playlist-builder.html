@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Spotify Quiz – Playlist Builder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+          crossorigin="anonymous" />
+
+    <style>
+        body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        textarea#jsonOutput {
+            font-family: monospace;
+        }
+
+        .track-card .btn-quiz {
+            min-width: 120px;
+        }
+
+        .value-pill {
+            padding: 0.1rem 0.5rem;
+            border-radius: 999px;
+            background-color: rgba(0,0,0,0.03);
+        }
+    </style>
+</head>
+
+<body class="bg-light">
+    <div class="container py-4">
+        <!-- Header / Login -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h1 class="h3 mb-1">Spotify Quiz – Playlist Builder</h1>
+                    <p id="status" class="mb-0 text-muted">Checking login status…</p>
+                    <div id="errorBox" class="text-danger small mt-1"></div>
+                </div>
+                <div class="text-md-end">
+                    <button id="loginBtn" class="btn btn-success">
+                        Log in with Spotify
+                    </button>
+                    <div id="deviceStatus" class="small mt-2 text-muted"></div>
+                    <button id="openSpotifyBtn" class="btn btn-outline-secondary btn-sm mt-2 d-none">
+                        Open Spotify
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add track -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Add track by URI or URL</h2>
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-8">
+                        <label for="spotifyInput" class="form-label">Spotify track URI or URL</label>
+                        <input type="text"
+                               id="spotifyInput"
+                               class="form-control"
+                               placeholder="spotify:track:ID or https://open.spotify.com/track/ID?si=..." />
+                        <div class="form-text">
+                            Paste a track URI or URL. We’ll fetch metadata and set slider limits automatically.
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 d-flex justify-content-md-end">
+                        <button id="addTrackBtn" class="btn btn-primary w-100 w-md-auto mt-3 mt-md-0">
+                            Add track
+                        </button>
+                    </div>
+                </div>
+                <div id="builderError" class="text-danger small mt-2"></div>
+            </div>
+        </div>
+
+        <!-- Tracks list -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Tracks in playlist</h2>
+                <div id="tracksContainer" class="d-grid gap-3">
+                    <div id="noTracksHint" class="text-muted small">
+                        No tracks yet. Add one using the field above.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export -->
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Export to tracks.json</h2>
+                <div class="mb-3 d-flex gap-2 flex-wrap">
+                    <button id="exportJsonBtn" class="btn btn-success">
+                        Export JSON
+                    </button>
+                    <button id="downloadJsonBtn" class="btn btn-outline-secondary" disabled>
+                        Download tracks.json
+                    </button>
+                </div>
+                <label for="jsonOutput" class="form-label">tracks.json content</label>
+                <textarea id="jsonOutput"
+                          class="form-control"
+                          rows="10"
+                          spellcheck="false"></textarea>
+                <div class="form-text">
+                    Copy this into your <code>tracks.json</code> file, or use the Download button.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================
+        //   CONFIG
+        // =====================
+
+        // TODO: set these:
+        const CLIENT_ID = "0bbfd2ff3da1471dae3b2e35b0714720"; // same as quiz app
+        const REDIRECT_URI = "https://inau-org.github.io/Quizify/playlist-builder.html";
+        // add this URI in your Spotify app's Redirect URIs
+
+        const SCOPES = [
+            "user-modify-playback-state",
+            "user-read-playback-state"
+        ];
+
+        // =====================
+        //   STATE
+        // =====================
+
+        let accessToken = null;
+        const builderTracks = []; // { index, uri, trackId, durationMs, startMs, clipMs, meta }
+
+        // =====================
+        //   PKCE HELPERS
+        // =====================
+
+        function generateRandomString(length = 64) {
+            const possible =
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+            let text = "";
+            const array = new Uint8Array(length);
+            window.crypto.getRandomValues(array);
+            for (let i = 0; i < length; i++) {
+                text += possible[array[i] % possible.length];
+            }
+            return text;
+        }
+
+        function base64UrlEncode(arrayBuffer) {
+            const bytes = new Uint8Array(arrayBuffer);
+            let binary = "";
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            const base64 = window.btoa(binary);
+            return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+        }
+
+        async function createCodeChallenge(codeVerifier) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(codeVerifier);
+            const digest = await window.crypto.subtle.digest("SHA-256", data);
+            return base64UrlEncode(digest);
+        }
+
+        // =====================
+        //   AUTH FLOW
+        // =====================
+
+        function updateAuthStatus(message) {
+            const statusEl = document.getElementById("status");
+            const loginBtn = document.getElementById("loginBtn");
+
+            if (!statusEl || !loginBtn) return;
+
+            if (accessToken) {
+                statusEl.textContent = message || "Logged in with Spotify";
+                loginBtn.textContent = "Already logged in";
+                loginBtn.classList.remove("btn-success");
+                loginBtn.classList.add("btn-secondary");
+                loginBtn.disabled = true;
+            } else {
+                statusEl.textContent = message || "Not logged in";
+                loginBtn.textContent = "Log in with Spotify";
+                loginBtn.classList.remove("btn-secondary");
+                loginBtn.classList.add("btn-success");
+                loginBtn.disabled = false;
+            }
+        }
+
+        function showError(msg) {
+            console.error(msg);
+            const box = document.getElementById("errorBox");
+            if (box) box.textContent = msg;
+        }
+
+        function showBuilderError(msg) {
+            const box = document.getElementById("builderError");
+            if (box) box.textContent = msg || "";
+        }
+
+        function storeToken(token, expiresInSeconds) {
+            accessToken = token;
+            const expiryTime = Date.now() + expiresInSeconds * 1000;
+            localStorage.setItem("spotify_builder_access_token", token);
+            localStorage.setItem("spotify_builder_token_expiry", String(expiryTime));
+            updateAuthStatus("Logged in with Spotify");
+            checkDevices();
+        }
+
+        function getStoredToken() {
+            const token = localStorage.getItem("spotify_builder_access_token");
+            const expiry = localStorage.getItem("spotify_builder_token_expiry");
+            if (!token || !expiry) return null;
+            if (Date.now() > Number(expiry)) {
+                localStorage.removeItem("spotify_builder_access_token");
+                localStorage.removeItem("spotify_builder_token_expiry");
+                return null;
+            }
+            return token;
+        }
+
+        async function startAuth() {
+            try {
+                const codeVerifier = generateRandomString(64);
+                const codeChallenge = await createCodeChallenge(codeVerifier);
+                const state = generateRandomString(16);
+
+                sessionStorage.setItem("spotify_builder_pkce_code_verifier", codeVerifier);
+                sessionStorage.setItem("spotify_builder_pkce_state", state);
+
+                const params = new URLSearchParams({
+                    client_id: CLIENT_ID,
+                    response_type: "code",
+                    redirect_uri: REDIRECT_URI,
+                    scope: SCOPES.join(" "),
+                    code_challenge_method: "S256",
+                    code_challenge: codeChallenge,
+                    state
+                });
+
+                window.location.href =
+                    "https://accounts.spotify.com/authorize?" + params.toString();
+
+            } catch (e) {
+                showError("Could not start login flow: " + e.message);
+            }
+        }
+
+        async function handleRedirectCallback() {
+            const url = new URL(window.location.href);
+            const code = url.searchParams.get("code");
+            const returnedState = url.searchParams.get("state");
+            const error = url.searchParams.get("error");
+
+            if (error) {
+                showError("Spotify login error: " + error);
+                url.searchParams.delete("error");
+                window.history.replaceState({}, document.title, url.pathname + url.search);
+                return;
+            }
+
+            if (!code) return;
+
+            const storedState = sessionStorage.getItem("spotify_builder_pkce_state");
+            if (storedState && returnedState && storedState !== returnedState) {
+                showError("State mismatch — login aborted.");
+                return;
+            }
+
+            const codeVerifier = sessionStorage.getItem("spotify_builder_pkce_code_verifier");
+            if (!codeVerifier) {
+                showError("Missing code_verifier — please log in again.");
+                return;
+            }
+
+            url.searchParams.delete("code");
+            url.searchParams.delete("state");
+            window.history.replaceState({}, document.title, url.pathname + url.search);
+
+            try {
+                const body = new URLSearchParams({
+                    client_id: CLIENT_ID,
+                    grant_type: "authorization_code",
+                    code,
+                    redirect_uri: REDIRECT_URI,
+                    code_verifier: codeVerifier
+                });
+
+                const res = await fetch("https://accounts.spotify.com/api/token", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: body.toString()
+                });
+
+                if (!res.ok) {
+                    const txt = await res.text();
+                    throw new Error("Token error " + res.status + ": " + txt);
+                }
+
+                const data = await res.json();
+                if (!data.access_token) {
+                    throw new Error("No access_token in response.");
+                }
+
+                storeToken(data.access_token, data.expires_in || 3600);
+
+            } catch (e) {
+                showError("Could not exchange code for token: " + e.message);
+            } finally {
+                sessionStorage.removeItem("spotify_builder_pkce_code_verifier");
+                sessionStorage.removeItem("spotify_builder_pkce_state");
+            }
+        }
+
+        // =====================
+        //   SPOTIFY API + DEVICES
+        // =====================
+
+        async function spotifyFetch(method, endpoint, body) {
+            if (!accessToken) throw new Error("No access token");
+            const res = await fetch("https://api.spotify.com/v1" + endpoint, {
+                method,
+                headers: {
+                    "Authorization": "Bearer " + accessToken,
+                    "Content-Type": "application/json"
+                },
+                body: body ? JSON.stringify(body) : undefined
+            });
+
+            if (res.status === 204) return null;
+
+            if (!res.ok) {
+                const txt = await res.text();
+                throw new Error("Spotify API error " + res.status + ": " + txt);
+            }
+
+            return await res.json();
+        }
+
+        function updateDeviceUi(hasActiveDevice, devices) {
+            const statusEl = document.getElementById("deviceStatus");
+            const openBtn = document.getElementById("openSpotifyBtn");
+            if (!statusEl || !openBtn) return;
+
+            if (!accessToken) {
+                statusEl.textContent = "";
+                openBtn.classList.add("d-none");
+                return;
+            }
+
+            if (hasActiveDevice) {
+                const activeNames = (devices || [])
+                    .filter(d => d.is_active)
+                    .map(d => d.name)
+                    .join(", ");
+                statusEl.textContent = activeNames
+                    ? `Active device: ${activeNames}`
+                    : "Active playback device detected.";
+                openBtn.classList.add("d-none");
+            } else {
+                statusEl.textContent =
+                    "No active Spotify device found. Open Spotify and start any track once, then try again.";
+                openBtn.classList.remove("d-none");
+            }
+        }
+
+        async function checkDevices() {
+            if (!accessToken) {
+                updateDeviceUi(false, []);
+                return;
+            }
+            try {
+                const data = await spotifyFetch("GET", "/me/player/devices");
+                const devices = data.devices || [];
+                const hasActive = devices.some(d => d.is_active);
+                updateDeviceUi(hasActive, devices);
+            } catch (e) {
+                console.error("Error fetching devices:", e);
+            }
+        }
+
+        // =====================
+        //   HELPER: URI / ID
+        // =====================
+
+        function extractTrackId(input) {
+            if (!input) return null;
+            input = input.trim();
+
+            if (input.startsWith("spotify:track:")) {
+                return input.split(":")[2] || null;
+            }
+
+            const openIdx = input.indexOf("open.spotify.com/track/");
+            if (openIdx !== -1) {
+                const after = input.slice(openIdx + "open.spotify.com/track/".length);
+                const qIdx = after.indexOf("?");
+                const id = qIdx === -1 ? after : after.slice(0, qIdx);
+                return id || null;
+            }
+
+            if (input.length === 22 && !input.includes(" ")) {
+                return input;
+            }
+
+            return null;
+        }
+
+        function buildUriFromInput(input) {
+            const id = extractTrackId(input);
+            if (!id) return null;
+            return {
+                uri: "spotify:track:" + id,
+                id
+            };
+        }
+
+        function msToSecondsLabel(ms) {
+            const s = ms / 1000;
+            return s.toFixed(2) + " s";
+        }
+
+        // =====================
+        //   RENDER + ROW LOGIC
+        // =====================
+
+        function renderTracks() {
+            const container = document.getElementById("tracksContainer");
+            const noTracksHint = document.getElementById("noTracksHint");
+            container.innerHTML = "";
+
+            if (builderTracks.length === 0) {
+                noTracksHint.classList.remove("d-none");
+                container.appendChild(noTracksHint);
+                return;
+            }
+
+            noTracksHint.classList.add("d-none");
+
+            builderTracks.forEach((t, idx) => {
+                const card = document.createElement("div");
+                card.className = "card track-card";
+
+                const body = document.createElement("div");
+                body.className = "card-body";
+
+                const headerRow = document.createElement("div");
+                headerRow.className = "d-flex justify-content-between align-items-center mb-2";
+
+                const leftHeader = document.createElement("div");
+                const songLabel = document.createElement("div");
+                songLabel.className = "fw-semibold";
+                songLabel.textContent = `Song #${t.index}`;
+
+                const metaLabel = document.createElement("div");
+                metaLabel.className = "small text-muted";
+                const artist = (t.meta.artists || []).join(", ");
+                metaLabel.textContent = `${t.meta.name} — ${artist} (${msToSecondsLabel(t.durationMs)} total)`;
+
+                leftHeader.appendChild(songLabel);
+                leftHeader.appendChild(metaLabel);
+
+                const previewBtn = document.createElement("button");
+                previewBtn.className = "btn btn-outline-primary btn-sm btn-quiz";
+                previewBtn.textContent = "Preview";
+                previewBtn.onclick = () => previewClip(t);
+
+                headerRow.appendChild(leftHeader);
+                headerRow.appendChild(previewBtn);
+
+                // Sliders
+                const sliderBlock = document.createElement("div");
+                sliderBlock.className = "mt-2";
+
+                // Start slider
+                const startGroup = document.createElement("div");
+                startGroup.className = "mb-2";
+
+                const startLabelRow = document.createElement("div");
+                startLabelRow.className = "d-flex justify-content-between align-items-center mb-1";
+
+                const startLabel = document.createElement("span");
+                startLabel.textContent = "Start offset";
+
+                const startVal = document.createElement("span");
+                startVal.className = "small value-pill";
+                startVal.textContent = `${t.startMs} ms (${msToSecondsLabel(t.startMs)})`;
+
+                startLabelRow.appendChild(startLabel);
+                startLabelRow.appendChild(startVal);
+
+                const startRange = document.createElement("input");
+                startRange.type = "range";
+                startRange.min = "0";
+                startRange.max = String(Math.max(0, t.durationMs - 500));
+                startRange.value = String(t.startMs);
+                startRange.className = "form-range";
+                startRange.step = "10";
+
+                const startLimits = document.createElement("div");
+                startLimits.className = "small text-muted d-flex justify-content-between";
+                startLimits.innerHTML = `<span>Min: 0 ms</span><span>Max: ${t.durationMs} ms</span>`;
+
+                startGroup.appendChild(startLabelRow);
+                startGroup.appendChild(startRange);
+                startGroup.appendChild(startLimits);
+
+                // Duration slider
+                const durGroup = document.createElement("div");
+
+                const durLabelRow = document.createElement("div");
+                durLabelRow.className = "d-flex justify-content-between align-items-center mb-1";
+
+                const durLabel = document.createElement("span");
+                durLabel.textContent = "Clip duration";
+
+                const durVal = document.createElement("span");
+                durVal.className = "small value-pill";
+                durVal.textContent = `${t.clipMs} ms (${msToSecondsLabel(t.clipMs)})`;
+
+                durLabelRow.appendChild(durLabel);
+                durLabelRow.appendChild(durVal);
+
+                const durRange = document.createElement("input");
+                durRange.type = "range";
+                durRange.min = "200";
+                durRange.max = String(t.durationMs);
+                durRange.value = String(t.clipMs);
+                durRange.className = "form-range";
+                durRange.step = "10";
+
+                const durLimits = document.createElement("div");
+                durLimits.className = "small text-muted d-flex justify-content-between";
+                durLimits.innerHTML = `<span>Min: 200 ms</span><span>Max: ${t.durationMs} ms</span>`;
+
+                durGroup.appendChild(durLabelRow);
+                durGroup.appendChild(durRange);
+                durGroup.appendChild(durLimits);
+
+                sliderBlock.appendChild(startGroup);
+                sliderBlock.appendChild(durGroup);
+
+                // Wire slider logic
+                startRange.addEventListener("input", () => {
+                    const newStart = Number(startRange.value);
+                    t.startMs = Math.max(0, newStart);
+                    const maxClip = Math.max(200, t.durationMs - t.startMs);
+                    if (t.clipMs > maxClip) {
+                        t.clipMs = maxClip;
+                        durRange.value = String(t.clipMs);
+                    }
+                    startVal.textContent = `${t.startMs} ms (${msToSecondsLabel(t.startMs)})`;
+                    durVal.textContent = `${t.clipMs} ms (${msToSecondsLabel(t.clipMs)})`;
+                });
+
+                durRange.addEventListener("input", () => {
+                    let newClip = Number(durRange.value);
+                    const maxClip = Math.max(200, t.durationMs - t.startMs);
+                    if (newClip > maxClip) {
+                        newClip = maxClip;
+                        durRange.value = String(newClip);
+                    }
+                    t.clipMs = Math.max(200, newClip);
+                    durVal.textContent = `${t.clipMs} ms (${msToSecondsLabel(t.clipMs)})`;
+                });
+
+                body.appendChild(headerRow);
+                body.appendChild(sliderBlock);
+                card.appendChild(body);
+                container.appendChild(card);
+            });
+        }
+
+        // =====================
+        //   PREVIEW
+        // =====================
+
+        async function previewClip(track) {
+            if (!accessToken) {
+                alert("Please log in with Spotify first.");
+                return;
+            }
+
+            try {
+                await spotifyFetch("PUT", "/me/player/play", {
+                    uris: [track.uri],
+                    position_ms: track.startMs
+                });
+
+                const dur = track.clipMs || 2000;
+
+                setTimeout(() => {
+                    spotifyFetch("PUT", "/me/player/pause").catch(err =>
+                        console.error("Pause error:", err)
+                    );
+                }, dur);
+
+            } catch (e) {
+                console.error("Preview error:", e);
+                const msg = String(e.message || "");
+                if (msg.includes("NO_ACTIVE_DEVICE")) {
+                    checkDevices();
+                    alert(
+                        "No active Spotify device found. Open Spotify, start any track once, then try again."
+                    );
+                } else {
+                    alert(
+                        "Could not play preview. Check you have an active Spotify device and (usually) a Premium account."
+                    );
+                }
+            }
+        }
+
+        // =====================
+        //   ADD TRACK FLOW
+        // =====================
+
+        async function addTrackFromInput() {
+            showBuilderError("");
+
+            if (!accessToken) {
+                showBuilderError("Please log in with Spotify first.");
+                return;
+            }
+
+            const spotifyInput = document.getElementById("spotifyInput");
+            const rawInput = spotifyInput.value.trim();
+            if (!rawInput) {
+                showBuilderError("Please enter a Spotify track URI or URL.");
+                return;
+            }
+
+            const parsed = buildUriFromInput(rawInput);
+            if (!parsed) {
+                showBuilderError("Could not extract a valid track ID from the input.");
+                return;
+            }
+
+            try {
+                const data = await spotifyFetch("GET", "/tracks/" + parsed.id);
+                const durationMs = data.duration_ms || 0;
+                if (!durationMs) {
+                    throw new Error("Track has no duration_ms from API.");
+                }
+
+                const index = builderTracks.length + 1;
+                const defaultClip = Math.min(2000, durationMs);
+
+                const track = {
+                    index,
+                    uri: parsed.uri,
+                    trackId: parsed.id,
+                    durationMs,
+                    startMs: 0,
+                    clipMs: defaultClip,
+                    meta: {
+                        name: data.name || "Unknown title",
+                        artists: (data.artists || []).map(a => a.name)
+                    }
+                };
+
+                builderTracks.push(track);
+                spotifyInput.value = "";
+                renderTracks();
+
+            } catch (e) {
+                console.error("Add track error:", e);
+                showBuilderError("Could not fetch track metadata: " + e.message);
+            }
+        }
+
+        // =====================
+        //   EXPORT
+        // =====================
+
+        function exportJson() {
+            const jsonOutput = document.getElementById("jsonOutput");
+            const downloadBtn = document.getElementById("downloadJsonBtn");
+
+            if (builderTracks.length === 0) {
+                jsonOutput.value = "[]";
+                downloadBtn.disabled = true;
+                return;
+            }
+
+            const arr = builderTracks.map((t, idx) => ({
+                id: "clip" + (idx + 1),
+                name: "Song #" + (idx + 1),
+                uri: t.uri,
+                startMs: t.startMs,
+                durationMs: t.clipMs
+            }));
+
+            const json = JSON.stringify(arr, null, 2);
+            jsonOutput.value = json;
+            downloadBtn.disabled = false;
+        }
+
+        function downloadJson() {
+            const jsonOutput = document.getElementById("jsonOutput");
+            if (!jsonOutput.value.trim()) return;
+
+            const blob = new Blob([jsonOutput.value], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "tracks.json";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            URL.revokeObjectURL(url);
+        }
+
+        // =====================
+        //   INIT
+        // =====================
+
+        window.addEventListener("DOMContentLoaded", async () => {
+            const loginBtn = document.getElementById("loginBtn");
+            if (loginBtn) {
+                loginBtn.addEventListener("click", startAuth);
+            }
+
+            const openSpotifyBtn = document.getElementById("openSpotifyBtn");
+            if (openSpotifyBtn) {
+                openSpotifyBtn.addEventListener("click", () => {
+                    window.open("https://open.spotify.com/", "_blank");
+                });
+            }
+
+            document.getElementById("addTrackBtn").addEventListener("click", addTrackFromInput);
+            document.getElementById("spotifyInput").addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    e.preventDefault();
+                    addTrackFromInput();
+                }
+            });
+
+            document.getElementById("exportJsonBtn").addEventListener("click", exportJson);
+            document.getElementById("downloadJsonBtn").addEventListener("click", downloadJson);
+
+            await handleRedirectCallback();
+
+            const stored = getStoredToken();
+            if (stored && !accessToken) {
+                accessToken = stored;
+            }
+
+            updateAuthStatus();
+            checkDevices();
+            renderTracks();
+        });
+    </script>
+</body>
+</html>
