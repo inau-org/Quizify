@@ -1,6 +1,6 @@
 // === KONFIG ===
-let CLIENT_ID = "";        // <-- INDSÆT DIT CLIENT ID
-let REDIRECT_URI = "";     // <-- INDSÆT DIN GITHUB PAGES URL (slut med /)
+let CLIENT_ID = "0bbfd2ff3da1471dae3b2e35b0714720";        // <-- INDSÆT DIT CLIENT ID
+let REDIRECT_URI = "https://inau-org.github.io/Quizify/";     // <-- INDSÆT DIN GITHUB PAGES URL (slut med /)
 const SCOPES = [
     "user-modify-playback-state",
     "user-read-playback-state"
