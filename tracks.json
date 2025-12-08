@@ -1,0 +1,16 @@
+[
+  {
+    "id": "clip1",
+    "name": "Gæt sang 1",
+    "uri": "spotify:track:4uLU6hMCjMI75M1A2tKUQC",
+    "startMs": 30000,
+    "durationMs": 2000
+  },
+  {
+    "id": "clip2",
+    "name": "Gæt sang 2",
+    "uri": "spotify:track:1301WleyT98MSxVHPZCA6M",
+    "startMs": 45000,
+    "durationMs": 2000
+  }
+]

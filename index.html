@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8" />
+    <title>Spotify Quiz</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 1.5rem;
+        }
+
+        button {
+            margin: 0.25rem 0;
+            padding: 0.5rem 1rem;
+        }
+
+        .track {
+            margin: 0.5rem 0;
+            padding: 0.75rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+            .track button {
+                margin-top: 0.5rem;
+            }
+    </style>
+</head>
+
+<body>
+    <h1>Spotify Quiz</h1>
+
+    <div id="auth">
+        <p id="status">Ikke logget ind</p>
+        <button id="loginBtn">Log ind med Spotify</button>
+    </div>
+
+    <div id="deviceHint" style="margin-top: 1rem; font-size: 0.9rem; color: #555;">
+        Sørg for at en Spotify-enhed er aktiv (telefon, PC, højttaler via Spotify Connect).
+    </div>
+
+    <h2>Tracks</h2>
+    <div id="tracksContainer">Indlæser tracks…</div>
+
+    <script src="app.js"></script>
+</body>
+</html>
