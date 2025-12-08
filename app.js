@@ -476,6 +476,14 @@ window.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    const openSpotifyBtn = document.getElementById("openSpotifyBtn");
+    if (openSpotifyBtn) {
+        openSpotifyBtn.addEventListener("click", () => {
+            // safest cross-platform: open web player (which often launches the app on mobile)
+            window.open("https://open.spotify.com/", "_blank");
+        });
+    }
+
     // Handle redirect back from Spotify (code in URL)
     await handleRedirectCallback();
 
@@ -487,6 +495,9 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     // Update login UI
     updateAuthStatus();
+
+    // Check devices (if logged in)
+    checkDevices();
 
     // Load playlist
     loadTracks();
