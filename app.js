@@ -1,13 +1,13 @@
 // =====================
-//   KONFIG
+//   CONFIG
 // =====================
 
+// Set these two:
 let CLIENT_ID = "0bbfd2ff3da1471dae3b2e35b0714720";        // <-- INDSÆT DIT CLIENT ID
 let REDIRECT_URI = "https://inau-org.github.io/Quizify/";     // <-- INDSÆT DIN GITHUB PAGES URL (slut med /)
-// Husk: matcher præcis din redirect URI i Spotify Dashboard
-// (inkl. stort/småt og afsluttende / )
+// Must match exact redirect URI in Spotify Dashboard
 
-// Scopes: nok til at styre playback
+// Scopes
 const SCOPES = [
     "user-modify-playback-state",
     "user-read-playback-state"
@@ -24,7 +24,6 @@ let tracks = [];
 //   PKCE HELPERS
 // =====================
 
-// Random string til code_verifier / state
 function generateRandomString(length = 64) {
     const possible =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
@@ -37,7 +36,6 @@ function generateRandomString(length = 64) {
     return text;
 }
 
-// base64url-encode af ArrayBuffer
 function base64UrlEncode(arrayBuffer) {
     const bytes = new Uint8Array(arrayBuffer);
     let binary = "";
@@ -48,7 +46,6 @@ function base64UrlEncode(arrayBuffer) {
     return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-// Lav code_challenge fra code_verifier
 async function createCodeChallenge(codeVerifier) {
     const encoder = new TextEncoder();
     const data = encoder.encode(codeVerifier);
@@ -62,7 +59,7 @@ async function createCodeChallenge(codeVerifier) {
 
 function updateAuthStatus(message) {
     const statusEl = document.getElementById("status");
-    statusEl.textContent = message || (accessToken ? "Logget ind på Spotify" : "Ikke logget ind");
+    statusEl.textContent = message || (accessToken ? "Logged in with Spotify" : "Not logged in");
 }
 
 function showError(msg) {
@@ -71,7 +68,6 @@ function showError(msg) {
     if (box) box.textContent = msg;
 }
 
-// Gemmer token i localStorage
 function storeToken(token, expiresInSeconds) {
     accessToken = token;
     const expiryTime = Date.now() + expiresInSeconds * 1000;
@@ -79,7 +75,6 @@ function storeToken(token, expiresInSeconds) {
     localStorage.setItem("spotify_token_expiry", String(expiryTime));
 }
 
-// Henter token fra localStorage hvis den stadig er gyldig
 function getStoredToken() {
     const token = localStorage.getItem("spotify_access_token");
     const expiry = localStorage.getItem("spotify_token_expiry");
@@ -92,14 +87,12 @@ function getStoredToken() {
     return token;
 }
 
-// Start login: lav code_verifier/challenge, redirect til Spotify
 async function startAuth() {
     try {
         const codeVerifier = generateRandomString(64);
         const codeChallenge = await createCodeChallenge(codeVerifier);
         const state = generateRandomString(16);
 
-        // Gem verifier + state til senere
         sessionStorage.setItem("spotify_pkce_code_verifier", codeVerifier);
         sessionStorage.setItem("spotify_pkce_state", state);
 
@@ -113,13 +106,14 @@ async function startAuth() {
             state
         });
 
-        window.location.href = "https://accounts.spotify.com/authorize?" + params.toString();
+        window.location.href =
+            "https://accounts.spotify.com/authorize?" + params.toString();
+
     } catch (e) {
-        showError("Kunne ikke starte login-flow: " + e.message);
+        showError("Could not start login flow: " + e.message);
     }
 }
 
-// Når vi kommer tilbage fra Spotify med ?code=...
 async function handleRedirectCallback() {
     const url = new URL(window.location.href);
     const code = url.searchParams.get("code");
@@ -127,34 +121,31 @@ async function handleRedirectCallback() {
     const error = url.searchParams.get("error");
 
     if (error) {
-        showError("Spotify login-fejl: " + error);
-        // Ryd query params
+        showError("Spotify login error: " + error);
         url.searchParams.delete("error");
         window.history.replaceState({}, document.title, url.pathname + url.search);
         return;
     }
 
-    if (!code) return; // Ingen callback -> ingenting at gøre
+    if (!code) return;
 
     const storedState = sessionStorage.getItem("spotify_pkce_state");
     if (storedState && returnedState && storedState !== returnedState) {
-        showError("State mismatch – login afbrudt.");
+        showError("State mismatch — login aborted.");
         return;
     }
 
     const codeVerifier = sessionStorage.getItem("spotify_pkce_code_verifier");
     if (!codeVerifier) {
-        showError("Mangler code_verifier – prøv at logge ind igen.");
+        showError("Missing code_verifier — please log in again.");
         return;
     }
 
-    // Når vi har code, må vi ikke blive ved med at have den i URL’en:
     url.searchParams.delete("code");
     url.searchParams.delete("state");
     window.history.replaceState({}, document.title, url.pathname + url.search);
 
     try {
-        // Byt code til access_token via token endpoint
         const body = new URLSearchParams({
             client_id: CLIENT_ID,
             grant_type: "authorization_code",
@@ -171,21 +162,20 @@ async function handleRedirectCallback() {
 
         if (!res.ok) {
             const txt = await res.text();
-            throw new Error("Token-fejl " + res.status + ": " + txt);
+            throw new Error("Token error " + res.status + ": " + txt);
         }
 
         const data = await res.json();
         if (!data.access_token) {
-            throw new Error("Intet access_token i svar.");
+            throw new Error("No access_token in response.");
         }
 
         storeToken(data.access_token, data.expires_in || 3600);
-        updateAuthStatus("Logget ind på Spotify");
+        updateAuthStatus("Logged in with Spotify");
 
     } catch (e) {
-        showError("Kunne ikke bytte kode til token: " + e.message);
+        showError("Could not exchange code for token: " + e.message);
     } finally {
-        // ryd PKCE data
         sessionStorage.removeItem("spotify_pkce_code_verifier");
         sessionStorage.removeItem("spotify_pkce_state");
     }
@@ -196,7 +186,7 @@ async function handleRedirectCallback() {
 // =====================
 
 async function spotifyFetch(method, endpoint, body) {
-    if (!accessToken) throw new Error("Ingen access token");
+    if (!accessToken) throw new Error("No access token");
     const res = await fetch("https://api.spotify.com/v1" + endpoint, {
         method,
         headers: {
@@ -210,7 +200,7 @@ async function spotifyFetch(method, endpoint, body) {
 
     if (!res.ok) {
         const txt = await res.text();
-        throw new Error("Spotify API fejl " + res.status + ": " + txt);
+        throw new Error("Spotify API error " + res.status + ": " + txt);
     }
 
     return await res.json();
@@ -223,21 +213,20 @@ async function spotifyFetch(method, endpoint, body) {
 async function loadTracks() {
     const container = document.getElementById("tracksContainer");
 
-    // ?tracks=... parameter
     const params = new URLSearchParams(window.location.search);
     let playlistUrl = params.get("tracks");
     if (!playlistUrl) playlistUrl = "tracks.json";
 
-    console.log("Loader tracks fra:", playlistUrl);
+    console.log("Loading tracks from:", playlistUrl);
 
     try {
         const res = await fetch(playlistUrl);
-        if (!res.ok) throw new Error("Kunne ikke hente playlist: " + playlistUrl);
+        if (!res.ok) throw new Error("Could not load playlist: " + playlistUrl);
         tracks = await res.json();
         renderTracks();
     } catch (e) {
         console.error(e);
-        container.textContent = "Kunne ikke indlæse " + playlistUrl;
+        container.textContent = "Could not load " + playlistUrl;
     }
 }
 
@@ -246,7 +235,7 @@ function renderTracks() {
     container.innerHTML = "";
 
     if (!tracks.length) {
-        container.textContent = "Ingen tracks i playlisten.";
+        container.textContent = "No tracks in playlist.";
         return;
     }
 
@@ -258,7 +247,7 @@ function renderTracks() {
         title.textContent = track.name;
 
         const btn = document.createElement("button");
-        btn.textContent = "Spil klip";
+        btn.textContent = "Play Clip";
         btn.onclick = () => playClip(track);
 
         div.appendChild(title);
@@ -269,7 +258,7 @@ function renderTracks() {
 
 async function playClip(track) {
     if (!accessToken) {
-        alert("Du skal logge ind på Spotify først.");
+        alert("Please log in with Spotify first.");
         return;
     }
 
@@ -283,13 +272,13 @@ async function playClip(track) {
 
         setTimeout(() => {
             spotifyFetch("PUT", "/me/player/pause").catch(err =>
-                console.error("Fejl ved pause:", err)
+                console.error("Pause error:", err)
             );
         }, dur);
 
     } catch (e) {
         console.error(e);
-        alert("Kunne ikke afspille klip. Tjek at en Spotify-enhed er aktiv (og ofte at kontoen er Premium).");
+        alert("Could not play clip. Ensure an active Spotify device (and often a Premium account).");
     }
 }
 
@@ -302,10 +291,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         startAuth();
     });
 
-    // 1) prøv at håndtere evt. redirect fra Spotify (code i URL’en)
     await handleRedirectCallback();
 
-    // 2) hvis vi stadig ikke har token, prøv localStorage
     const stored = getStoredToken();
     if (stored && !accessToken) {
         accessToken = stored;
@@ -313,6 +300,5 @@ window.addEventListener("DOMContentLoaded", async () => {
 
     updateAuthStatus();
 
-    // 3) load playlist
     loadTracks();
 });
