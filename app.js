@@ -2,9 +2,8 @@
 //   KONFIG
 // =====================
 
-// Sæt disse to:
-const CLIENT_ID = "DIN_CLIENT_ID_HER";
-const REDIRECT_URI = "https://DIT-BRUGERNAVN.github.io/Quizify/";
+let CLIENT_ID = "0bbfd2ff3da1471dae3b2e35b0714720";        // <-- INDSÆT DIT CLIENT ID
+let REDIRECT_URI = "https://inau-org.github.io/Quizify/";     // <-- INDSÆT DIN GITHUB PAGES URL (slut med /)
 // Husk: matcher præcis din redirect URI i Spotify Dashboard
 // (inkl. stort/småt og afsluttende / )
 
