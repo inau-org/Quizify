@@ -25,6 +25,12 @@
             .track button {
                 margin-top: 0.5rem;
             }
+
+        #errorBox {
+            margin-top: 0.5rem;
+            color: #b00020;
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 
@@ -32,12 +38,14 @@
     <h1>Spotify Quiz</h1>
 
     <div id="auth">
-        <p id="status">Ikke logget ind</p>
+        <p id="status">Tjekker login-status…</p>
         <button id="loginBtn">Log ind med Spotify</button>
+        <div id="errorBox"></div>
     </div>
 
     <div id="deviceHint" style="margin-top: 1rem; font-size: 0.9rem; color: #555;">
-        Sørg for at en Spotify-enhed er aktiv (telefon, PC, højttaler via Spotify Connect).
+        Sørg for at en Spotify-enhed er aktiv (telefon, PC, højttaler via Spotify Connect),
+        så klippene kan afspilles.
     </div>
 
     <h2>Tracks</h2>
