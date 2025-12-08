@@ -251,6 +251,12 @@ async function loadTracks() {
     }
 }
 
+function getTrackIdFromUri(uri) {
+    if (!uri) return null;
+    const parts = uri.split(":");
+    return parts[2] || null;
+}
+
 function renderTracks() {
     const container = document.getElementById("tracksContainer");
     container.innerHTML = "";
@@ -265,22 +271,121 @@ function renderTracks() {
         card.className = "card track-card";
 
         const body = document.createElement("div");
-        body.className = "card-body d-flex justify-content-between align-items-center";
+        body.className = "card-body";
 
-        const title = document.createElement("div");
-        title.textContent = track.name;
+        // --- Row 1: label + Play Clip button (right aligned) ---
+        const row1 = document.createElement("div");
+        row1.className = "d-flex justify-content-between align-items-center mb-2";
 
-        const btn = document.createElement("button");
-        btn.textContent = "Play Clip";
-        btn.className = "btn btn-outline-primary btn-sm";
-        btn.onclick = () => playClip(track);
+        const label = document.createElement("div");
+        label.textContent = track.name;
 
-        body.appendChild(title);
-        body.appendChild(btn);
+        const playBtn = document.createElement("button");
+        playBtn.textContent = "Play Clip";
+        playBtn.className = "btn btn-outline-primary btn-sm btn-quiz";
+        playBtn.onclick = () => playClip(track);
+
+        row1.appendChild(label);
+        row1.appendChild(playBtn);
+
+        // --- Row 2: Artist | Song | Confirm guesses (right aligned) ---
+        const row2 = document.createElement("div");
+        row2.className = "d-flex justify-content-between align-items-center";
+
+        const textCols = document.createElement("div");
+        textCols.className = "d-flex flex-wrap gap-3";
+
+        const artistWrapper = document.createElement("span");
+        artistWrapper.className = "me-3";
+        const artistLabel = document.createElement("span");
+        artistLabel.className = "fw-semibold me-1";
+        artistLabel.textContent = "Artist:";
+        const artistValue = document.createElement("span");
+        artistValue.className = "text-muted artist-name";
+        artistValue.textContent = "???";
+
+        artistWrapper.appendChild(artistLabel);
+        artistWrapper.appendChild(artistValue);
+
+        const songWrapper = document.createElement("span");
+        const songLabel = document.createElement("span");
+        songLabel.className = "fw-semibold me-1";
+        songLabel.textContent = "Song:";
+        const songValue = document.createElement("span");
+        songValue.className = "text-muted song-title";
+        songValue.textContent = "???";
+
+        songWrapper.appendChild(songLabel);
+        songWrapper.appendChild(songValue);
+
+        textCols.appendChild(artistWrapper);
+        textCols.appendChild(songWrapper);
+
+        const confirmBtn = document.createElement("button");
+        confirmBtn.textContent = "Confirm guesses";
+        confirmBtn.className = "btn btn-success btn-sm btn-quiz";
+
+        confirmBtn.onclick = () =>
+            confirmGuesses(track, artistValue, songValue, confirmBtn);
+
+        row2.appendChild(textCols);
+        row2.appendChild(confirmBtn);
+
+        body.appendChild(row1);
+        body.appendChild(row2);
         card.appendChild(body);
         container.appendChild(card);
     }
 }
+
+// =====================
+//   CONFIRM / REVEAL
+// =====================
+
+async function confirmGuesses(track, artistEl, songEl, buttonEl) {
+    if (!accessToken) {
+        alert("Please log in with Spotify first.");
+        return;
+    }
+
+    // Disable button and keep it green
+    buttonEl.disabled = true;
+    buttonEl.textContent = "Guesses confirmed";
+
+    try {
+        // If we already fetched metadata once, reuse it
+        if (!track._artistName || !track._trackTitle) {
+            const trackId = getTrackIdFromUri(track.uri);
+            if (!trackId) {
+                throw new Error("Invalid track URI: " + track.uri);
+            }
+
+            const data = await spotifyFetch("GET", "/tracks/" + trackId);
+
+            track._artistName = (data.artists || [])
+                .map(a => a.name)
+                .join(", ") || "Unknown artist";
+
+            track._trackTitle = data.name || "Unknown title";
+        }
+
+        artistEl.textContent = track._artistName;
+        songEl.textContent = track._trackTitle;
+        artistEl.classList.remove("text-muted");
+        songEl.classList.remove("text-muted");
+
+    } catch (e) {
+        console.error("Reveal error:", e);
+        showError("Could not load track info: " + e.message);
+        // Re-enable button so you can try again
+        buttonEl.disabled = false;
+        buttonEl.textContent = "Confirm guesses";
+    }
+}
+
+// =====================
+//   PLAYBACK
+// =====================
 
 async function playClip(track) {
     if (!accessToken) {
@@ -304,7 +409,9 @@ async function playClip(track) {
 
     } catch (e) {
         console.error("Play error:", e);
-        alert("Could not play clip. Check you have an active Spotify device and (usually) a Premium account.");
+        alert(
+            "Could not play clip. Check you have an active Spotify device and (usually) a Premium account."
+        );
     }
 }
 
@@ -320,16 +427,16 @@ window.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // Try to handle redirect from Spotify (code in URL)
+    // Handle redirect back from Spotify (code in URL)
     await handleRedirectCallback();
 
-    // If we already had a stored token, use it
+    // Use stored token if still valid
     const stored = getStoredToken();
     if (stored && !accessToken) {
         accessToken = stored;
     }
 
-    // Update UI according to token state
+    // Update login UI
     updateAuthStatus();
 
     // Load playlist
