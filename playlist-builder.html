@@ -443,8 +443,13 @@
             container.innerHTML = "";
 
             if (builderTracks.length === 0) {
-                noTracksHint.classList.remove("d-none");
-                container.appendChild(noTracksHint);
+                if (noTracksHint) {
+                    noTracksHint.classList.remove("d-none");
+                    container.appendChild(noTracksHint);
+                } else {
+                    // Fallback text if hint element doesn’t exist
+                    container.textContent = "No tracks yet. Add one using the field above.";
+                }
                 return;
             }
 
