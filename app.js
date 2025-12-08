@@ -228,6 +228,55 @@ async function spotifyFetch(method, endpoint, body) {
 }
 
 // =====================
+//   DEVICE STATUS / HELP
+// =====================
+
+function updateDeviceUi(hasActiveDevice, devices) {
+    const statusEl = document.getElementById("deviceStatus");
+    const openBtn = document.getElementById("openSpotifyBtn");
+
+    if (!statusEl || !openBtn) return;
+
+    if (!accessToken) {
+        statusEl.textContent = "";
+        openBtn.classList.add("d-none");
+        return;
+    }
+
+    if (hasActiveDevice) {
+        const activeNames = (devices || [])
+            .filter(d => d.is_active)
+            .map(d => d.name)
+            .join(", ");
+
+        statusEl.textContent = activeNames
+            ? `Active device: ${activeNames}`
+            : "Active playback device detected.";
+        openBtn.classList.add("d-none");
+    } else {
+        statusEl.textContent =
+            "No active Spotify device found. Open Spotify and start any track once, then try again.";
+        openBtn.classList.remove("d-none");
+    }
+}
+
+async function checkDevices() {
+    if (!accessToken) {
+        updateDeviceUi(false, []);
+        return;
+    }
+    try {
+        const data = await spotifyFetch("GET", "/me/player/devices");
+        const devices = data.devices || [];
+        const hasActive = devices.some(d => d.is_active);
+        updateDeviceUi(hasActive, devices);
+    } catch (e) {
+        console.error("Error fetching devices:", e);
+        // Don't spam error box, just log
+    }
+}
+
+// =====================
 //   TRACKS / PLAYLIST
 // =====================
 
