@@ -3,9 +3,8 @@
 // =====================
 
 // Set these two:
-let CLIENT_ID = "0bbfd2ff3da1471dae3b2e35b0714720";        // <-- INDSÆT DIT CLIENT ID
-let REDIRECT_URI = "https://inau-org.github.io/Quizify/";     // <-- INDSÆT DIN GITHUB PAGES URL (slut med /)
-// Must match exact redirect URI in Spotify Dashboard
+const CLIENT_ID = "0bbfd2ff3da1471dae3b2e35b0714720";         // your real client id
+const REDIRECT_URI = "https://inau-org.github.io/Quizify/";    // your real Pages URL
 
 // Scopes
 const SCOPES = [
@@ -59,7 +58,27 @@ async function createCodeChallenge(codeVerifier) {
 
 function updateAuthStatus(message) {
     const statusEl = document.getElementById("status");
-    statusEl.textContent = message || (accessToken ? "Logged in with Spotify" : "Not logged in");
+    const loginBtn = document.getElementById("loginBtn");
+
+    if (!statusEl || !loginBtn) return;
+
+    if (accessToken) {
+        statusEl.textContent = message || "Logged in with Spotify";
+
+        // button: grey, disabled, "Already logged in"
+        loginBtn.textContent = "Already logged in";
+        loginBtn.classList.remove("btn-success");
+        loginBtn.classList.add("btn-secondary");
+        loginBtn.disabled = true;
+    } else {
+        statusEl.textContent = message || "Not logged in";
+
+        // button: green, active, "Log in with Spotify"
+        loginBtn.textContent = "Log in with Spotify";
+        loginBtn.classList.remove("btn-secondary");
+        loginBtn.classList.add("btn-success");
+        loginBtn.disabled = false;
+    }
 }
 
 function showError(msg) {
@@ -73,6 +92,9 @@ function storeToken(token, expiresInSeconds) {
     const expiryTime = Date.now() + expiresInSeconds * 1000;
     localStorage.setItem("spotify_access_token", token);
     localStorage.setItem("spotify_token_expiry", String(expiryTime));
+
+    // Immediately reflect in UI
+    updateAuthStatus("Logged in with Spotify");
 }
 
 function getStoredToken() {
@@ -171,7 +193,6 @@ async function handleRedirectCallback() {
         }
 
         storeToken(data.access_token, data.expires_in || 3600);
-        updateAuthStatus("Logged in with Spotify");
 
     } catch (e) {
         showError("Could not exchange code for token: " + e.message);
@@ -240,19 +261,24 @@ function renderTracks() {
     }
 
     for (const track of tracks) {
-        const div = document.createElement("div");
-        div.className = "track";
+        const card = document.createElement("div");
+        card.className = "card track-card";
+
+        const body = document.createElement("div");
+        body.className = "card-body d-flex justify-content-between align-items-center";
 
         const title = document.createElement("div");
         title.textContent = track.name;
 
         const btn = document.createElement("button");
         btn.textContent = "Play Clip";
+        btn.className = "btn btn-outline-primary btn-sm";
         btn.onclick = () => playClip(track);
 
-        div.appendChild(title);
-        div.appendChild(btn);
-        container.appendChild(div);
+        body.appendChild(title);
+        body.appendChild(btn);
+        card.appendChild(body);
+        container.appendChild(card);
     }
 }
 
@@ -277,8 +303,8 @@ async function playClip(track) {
         }, dur);
 
     } catch (e) {
-        console.error(e);
-        alert("Could not play clip. Ensure an active Spotify device (and often a Premium account).");
+        console.error("Play error:", e);
+        alert("Could not play clip. Check you have an active Spotify device and (usually) a Premium account.");
     }
 }
 
@@ -287,18 +313,25 @@ async function playClip(track) {
 // =====================
 
 window.addEventListener("DOMContentLoaded", async () => {
-    document.getElementById("loginBtn").addEventListener("click", () => {
-        startAuth();
-    });
+    const loginBtn = document.getElementById("loginBtn");
+    if (loginBtn) {
+        loginBtn.addEventListener("click", () => {
+            startAuth();
+        });
+    }
 
+    // Try to handle redirect from Spotify (code in URL)
     await handleRedirectCallback();
 
+    // If we already had a stored token, use it
     const stored = getStoredToken();
     if (stored && !accessToken) {
         accessToken = stored;
     }
 
+    // Update UI according to token state
     updateAuthStatus();
 
+    // Load playlist
     loadTracks();
 });
