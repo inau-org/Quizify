@@ -434,6 +434,11 @@
 
         function renderTracks() {
             const container = document.getElementById("tracksContainer");
+            if (!container) {
+                // Not on a page that has the builder UI; nothing to do
+                return;
+            }
+
             const noTracksHint = document.getElementById("noTracksHint");
             container.innerHTML = "";
 
