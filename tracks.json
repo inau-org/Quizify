@@ -16,7 +16,7 @@
   {
     "id": "clip3",
     "name": "song 3",
-    "uti": "spotify:track:4BDFCtjvCP99vx5bhvsFH4",
+    "uri": "spotify:track:4BDFCtjvCP99vx5bhvsFH4",
     "startMs": 141000,
     "durationMs": 3000
   }
