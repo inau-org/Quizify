@@ -12,5 +12,12 @@
     "uri": "spotify:track:1301WleyT98MSxVHPZCA6M",
     "startMs": 45000,
     "durationMs": 2000
+  },
+  {
+    "id": "clip3",
+    "name": "song 3",
+    "uti": "spotify:track:4BDFCtjvCP99vx5bhvsFH4",
+    "startMs": 141000,
+    "durationMs": 3000
   }
 ]
