@@ -5,18 +5,19 @@
 //
 // Public:
 //   initPlaylistLoader({ 
-//      selectId, statusId, loadBtnId, useBtnId, localFile 
+//      selectId, statusId, loadBtnId, useBtnId, localFile, tracksContainerId 
 //   });
 //
 // Default IDs match the HTML you already use.
 
 import {
-    getAllTracks,      // playlist list (each track = playlist)
-    saveTracksFromUrl  // loads playlists from file → localStorage
+    getAllTrackListNames,
+    loadTrackList,
+    saveTrackListFromUrl
 } from "./storage.js";
 
 /**
- * Get user-friendly playlist name.
+ * Get user-friendly playlist name from track list name.
  */
 function getPlaylistLabel(playlist, index) {
     return (
@@ -147,10 +148,10 @@ export function initPlaylistLoader(options = {}) {
     // --- On startup ---
 
     (async function init() {
-        playlists = getAllTracks();
+        playlists = getAllTrackListNames();
 
         if (!playlists.length) {
-            playlists = await importFromLocalFile(statusEl, selectEl, localFile);
+            playlists.appendChild(await importFromLocalFile(statusEl, selectEl, localFile));
         } else {
             populateDropdown(selectEl, playlists);
             statusEl.textContent =
