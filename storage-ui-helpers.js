@@ -19,22 +19,17 @@ import {
 /**
  * Get user-friendly playlist name from track list name.
  */
-function getPlaylistLabel(playlist, index) {
-    return (
-        playlist.name ||
-        playlist.title ||
-        playlist.id ||
-        `Playlist #${index + 1}`
-    );
+function getPlaylistLabel(name, index) {
+    return name || `Playlist #${index + 1}`;
 }
 
 /**
- * Populate dropdown with playlist objects.
+ * Populate dropdown with track list names from localStorage.
  */
-function populateDropdown(selectEl, playlists) {
+function populateDropdown(selectEl, trackListNames) {
     selectEl.innerHTML = "";
 
-    if (!playlists.length) {
+    if (!trackListNames.length) {
         const opt = document.createElement("option");
         opt.value = "";
         opt.textContent = "(no playlists found)";
@@ -47,28 +42,28 @@ function populateDropdown(selectEl, playlists) {
     placeholder.textContent = "Choose a playlist…";
     selectEl.appendChild(placeholder);
 
-    playlists.forEach((pl, idx) => {
+    trackListNames.forEach((name, idx) => {
         const opt = document.createElement("option");
-        opt.value = String(idx);
-        opt.textContent = getPlaylistLabel(pl, idx);
+        opt.value = name; // Store the actual name as value
+        opt.textContent = getPlaylistLabel(name, idx);
         selectEl.appendChild(opt);
     });
 }
 
 /**
- * Load all playlists from local JSON file (e.g. tracks.json)
+ * Display tracks in the tracksContainer div.
  */
-async function importFromLocalFile(statusEl, selectEl, localFile = "./tracks.json") {
-    statusEl.textContent = `Loading playlists from ${localFile}…`;
+async function importFromLocalFile(statusEl, selectEl, localFile = "./tracks.json", playlistName = "default") {
+    statusEl.textContent = `Loading playlist from ${localFile}…`;
 
     try {
-        await saveTracksFromUrl(localFile);
+        await saveTrackListFromUrl(playlistName, localFile);
 
-        const playlists = getAllTracks();
-        populateDropdown(selectEl, playlists);
+        const trackListNames = getAllTrackListNames();
+        populateDropdown(selectEl, trackListNames);
 
         statusEl.textContent =
-            `Loaded ${playlists.length} playlist(s) from ${localFile} and saved to localStorage.`;
+            `Loaded playlist "${playlistName}" from ${localFile} and saved to localStorage.`;
 
         return playlists;
     } catch (err) {
