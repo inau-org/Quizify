@@ -1,7 +1,7 @@
-const STORAGE_KEY = "tracks_json";
+const STORAGE_PREFIX = "tracklist:";
 
 /**
- * Internal: normalize data (array or single object) into an array.
+ * Normalize data into an array of tracks.
  */
 function normalizeTrackList(data) {
     if (Array.isArray(data)) return data;
@@ -10,216 +10,130 @@ function normalizeTrackList(data) {
 }
 
 /**
- * Internal: read the entire track list from localStorage.
+ * Save a track list under a given name.
  *
- * Returns:
- *  - list: array of track objects (may be empty)
+ * Resulting storage key: tracklist:<name>
  */
-function readTrackList() {
-    let list = [];
+export function saveTrackList(name, tracks) {
+    if (!name) throw new Error("saveTrackList: name is required");
 
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw != null) {
-            const parsed = JSON.parse(raw);
-            if (Array.isArray(parsed)) {
-                list = parsed;
-            } else {
-                console.warn("Stored track data is not an array. Resetting.");
-            }
-        }
-    } catch (err) {
-        console.warn("Failed to parse track list from localStorage:", err);
-    }
-
-    return { list };
-}
-
-/**
- * Save a list of tracks (array or single object) under a single key.
- *
- * The data format matches `tracks.json`:
- * [
- *   {
- *     "id": "clip1",
- *     "name": "song 1",
- *     "uri": "spotify:track:...",
- *     "startMs": 30000,
- *     "durationMs": 2000
- *   },
- *   ...
- * ]
- */
-export function saveTracks(tracks) {
     const list = normalizeTrackList(tracks);
-    if (!list.length) {
-        // If you want to clear when given empty, uncomment:
-        // localStorage.removeItem(STORAGE_KEY);
-        return;
-    }
+    const key = STORAGE_PREFIX + name;
 
     try {
-        const jsonString = JSON.stringify(list);
-        localStorage.setItem(STORAGE_KEY, jsonString);
+        localStorage.setItem(key, JSON.stringify(list));
     } catch (err) {
-        console.error("Failed to save track list to localStorage:", err);
+        console.error("Failed to save track list:", err);
     }
 }
 
 /**
- * Get all tracks as an array of objects.
+ * Load a track list by name.
  */
-export function getAllTracks() {
-    const { list } = readTrackList();
-    return list;
+export function loadTrackList(name) {
+    if (!name) throw new Error("loadTrackList: name is required");
+
+    const key = STORAGE_PREFIX + name;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+
+    try {
+        const data = JSON.parse(raw);
+        return Array.isArray(data) ? data : null;
+    } catch (err) {
+        console.error("Failed to parse track list:", err);
+        return null;
+    }
 }
 
 /**
- * Get all tracks as a JSON string.
- * `pretty = true` will format with indentation (nice for textareas / files).
+ * Delete a named track list.
  */
-export function getTracksAsString(pretty = true) {
-    const tracks = getAllTracks();
-    return pretty ? JSON.stringify(tracks, null, 2) : JSON.stringify(tracks);
+export function deleteTrackList(name) {
+    const key = STORAGE_PREFIX + name;
+    localStorage.removeItem(key);
 }
 
 /**
- * Clear the stored track list.
+ * Get all saved track list names.
  */
-export function clearAllTracks() {
-    localStorage.removeItem(STORAGE_KEY);
-}
+export function getAllTrackListNames() {
+    const names = [];
 
-/**
- * Save tracks from a JSON string (e.g. from a textfield or raw string).
- *
- * The JSON may be:
- *  - an array of track objects
- *  - a single track object
- */
-export function saveTracksFromString(jsonString) {
-    if (typeof jsonString !== "string") {
-        throw new Error("saveTracksFromString expects a string");
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+
+        if (key.startsWith(STORAGE_PREFIX)) {
+            names.push(key.slice(STORAGE_PREFIX.length));
+        }
     }
 
+    return names;
+}
+
+/**
+ * Save a track list from a JSON string (textarea, raw text, etc.).
+ */
+export function saveTrackListFromString(name, jsonString) {
     let data;
+
     try {
         data = JSON.parse(jsonString);
     } catch (err) {
-        console.error("Failed to parse JSON string for tracks:", err);
+        console.error("JSON parsing error:", err);
         throw err;
     }
 
-    saveTracks(data);
+    saveTrackList(name, data);
 }
 
 /**
- * Save tracks from the value of a textfield / textarea element.
- *
- * Example usage in HTML:
- *   <textarea id="trackInput"></textarea>
- *   <button onclick="importFromTextView('trackInput')">Import</button>
+ * Load a track list and return it as a pretty JSON string.
  */
-export function saveTracksFromTextView(elementIdOrElement) {
-    let el = elementIdOrElement;
+export function getTrackListAsString(name, pretty = true) {
+    const list = loadTrackList(name);
+    if (!list) return "";
 
-    if (typeof elementIdOrElement === "string") {
-        el = document.getElementById(elementIdOrElement);
-    }
-
-    if (!el || !("value" in el)) {
-        throw new Error("saveTracksFromTextView: invalid element or element id");
-    }
-
-    const jsonString = el.value;
-    return saveTracksFromString(jsonString);
+    return pretty ? JSON.stringify(list, null, 2) : JSON.stringify(list);
 }
 
 /**
- * Load tracks from localStorage and put the JSON into a textfield / textarea.
- *
- * Example:
- *   <textarea id="trackOutput"></textarea>
- *   <button onclick="loadTracksIntoTextView('trackOutput')">Load</button>
+ * Save a track list from a URL (remote JSON file).
  */
-export function loadTracksIntoTextView(elementIdOrElement, pretty = true) {
-    let el = elementIdOrElement;
-
-    if (typeof elementIdOrElement === "string") {
-        el = document.getElementById(elementIdOrElement);
-    }
-
-    if (!el || !("value" in el)) {
-        throw new Error("loadTracksIntoTextView: invalid element or element id");
-    }
-
-    el.value = getTracksAsString(pretty);
-}
-
-/**
- * Save tracks from a JSON file hosted on the same or remote server.
- * `url` should point to JSON with:
- *  - an array of track objects, or
- *  - a single track object
- */
-export async function saveTracksFromUrl(url) {
-    if (!url || typeof url !== "string") {
-        throw new Error("saveTracksFromUrl expects a non-empty URL string");
-    }
-
-    let response;
-    try {
-        response = await fetch(url);
-    } catch (err) {
-        console.error("Network error fetching tracks JSON from URL:", url, err);
-        throw err;
-    }
+export async function saveTrackListFromUrl(name, url) {
+    const response = await fetch(url);
 
     if (!response.ok) {
-        const error = new Error(`Failed to fetch JSON from ${url}: ${response.status} ${response.statusText}`);
-        console.error(error);
-        throw error;
+        throw new Error(`Failed to fetch track list from URL: ${response.status}`);
     }
 
     try {
-        // Try parsing as JSON directly
         const data = await response.json();
-        saveTracks(data);
-    } catch (err) {
-        console.warn("Response was not directly parseable as JSON, trying as text:", err);
+        saveTrackList(name, data);
+    } catch (e) {
+        // fallback to text (if not pure JSON)
         const text = await response.text();
-        return saveTracksFromString(text);
+        saveTrackListFromString(name, text);
     }
 }
 
 /**
- * Save tracks from a local JSON file selected via <input type="file">.
- *
- * Example usage in HTML:
- *   <input type="file" id="fileInput" accept="application/json"
- *          onchange="importFromFile(this.files[0])" />
+ * Save a track list from a local JSON file via <input type="file">.
  */
-export function saveTracksFromFile(file) {
-    if (!file || !(file instanceof File)) {
-        throw new Error("saveTracksFromFile expects a File object");
-    }
-
+export function saveTrackListFromFile(name, file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
 
         reader.onload = () => {
             try {
-                const text = reader.result;
-                saveTracksFromString(String(text));
+                saveTrackListFromString(name, reader.result);
                 resolve();
-            } catch (err) {
-                reject(err);
+            } catch (e) {
+                reject(e);
             }
         };
 
-        reader.onerror = () => {
-            reject(reader.error || new Error("Unknown FileReader error"));
-        };
+        reader.onerror = () => reject(reader.error);
 
         reader.readAsText(file, "utf-8");
     });

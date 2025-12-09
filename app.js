@@ -499,6 +499,4 @@ window.addEventListener("DOMContentLoaded", async () => {
     // Check devices (if logged in)
     checkDevices();
 
-    // Load playlist
-    loadTracks();
 });
