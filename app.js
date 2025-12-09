@@ -153,13 +153,13 @@ async function handleRedirectCallback() {
 
     const storedState = sessionStorage.getItem("spotify_pkce_state");
     if (storedState && returnedState && storedState !== returnedState) {
-        showError("State mismatch — login aborted.");
+        showError("State mismatch â€” login aborted.");
         return;
     }
 
     const codeVerifier = sessionStorage.getItem("spotify_pkce_code_verifier");
     if (!codeVerifier) {
-        showError("Missing code_verifier — please log in again.");
+        showError("Missing code_verifier â€” please log in again.");
         return;
     }
 
