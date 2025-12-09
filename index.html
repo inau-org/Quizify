@@ -121,16 +121,8 @@
 
     <script type="module">
         import { getAllTracks, saveTracksFromUrl } from "./storage.js";
-        import { populateDropdown } from "./storage-ui-helpers.js"; // optional helper
-
-        if (getAllTracks().length === 0) {
-            await saveTracksFromUrl("./tracks.json");
-        }
-
-        populateDropdown(
-            document.getElementById("playlistSelect"),
-            getAllTracks()
-        );
+        import { initPlaylistLoader } from "./storage-ui-helpers.js"; // optional helper
+        initPlaylistLoader();
     </script>
 
     <!-- (Optional) Bootstrap JS if you ever need components like modals/dropdowns -->
