@@ -139,26 +139,37 @@
             </div>
         </div>
 
-        <!-- Export -->
+        <!-- Export / Import -->
         <div class="card shadow-sm">
             <div class="card-body">
-                <h2 class="h5 mb-3">Export to tracks.json</h2>
+                <h2 class="h5 mb-3">Export / Import JSON</h2>
                 <div class="mb-3 d-flex gap-2 flex-wrap">
                     <button id="exportJsonBtn" class="btn btn-success">
                         Export JSON
                     </button>
-                    <button id="downloadJsonBtn" class="btn btn-outline-secondary" disabled>
-                        Download tracks.json
+                    <button id="importJsonBtn" class="btn btn-outline-primary">
+                        Import from JSON
                     </button>
                 </div>
                 <label for="jsonOutput" class="form-label">tracks.json content</label>
                 <textarea id="jsonOutput"
                           class="form-control"
                           rows="10"
-                          spellcheck="false"></textarea>
+                          spellcheck="false"
+                          placeholder='Paste JSON here to import, e.g.:
+[
+  {
+    "id": "clip1",
+    "name": "Song #1",
+    "uri": "spotify:track:...",
+    "startMs": 0,
+    "durationMs": 2000
+  }
+]'></textarea>
                 <div class="form-text">
-                    Copy this into your <code>tracks.json</code> file, or use the Download button.
+                    Use <strong>Export JSON</strong> to generate JSON from your current tracks, or paste JSON and click <strong>Import from JSON</strong> to load tracks into the builder.
                 </div>
+                <div id="importStatus" class="mt-2 small"></div>
             </div>
         </div>
     </div>
@@ -252,6 +263,14 @@
         function showBuilderError(msg) {
             const box = document.getElementById("builderError");
             if (box) box.textContent = msg || "";
+        }
+
+        function showImportStatus(msg, isError = false) {
+            const box = document.getElementById("importStatus");
+            if (box) {
+                box.textContent = msg || "";
+                box.className = isError ? "mt-2 small text-danger" : "mt-2 small text-success";
+            }
         }
 
         function storeToken(token, expiresInSeconds) {
@@ -738,16 +757,14 @@
         }
 
         // =====================
-        //   EXPORT
+        //   EXPORT / IMPORT
         // =====================
 
         function exportJson() {
             const jsonOutput = document.getElementById("jsonOutput");
-            const downloadBtn = document.getElementById("downloadJsonBtn");
 
             if (builderTracks.length === 0) {
                 jsonOutput.value = "[]";
-                downloadBtn.disabled = true;
                 return;
             }
 
@@ -761,24 +778,107 @@
 
             const json = JSON.stringify(arr, null, 2);
             jsonOutput.value = json;
-            downloadBtn.disabled = false;
         }
 
-        function downloadJson() {
+        async function importJson() {
+            showImportStatus("");
+
+            if (!accessToken) {
+                showImportStatus("Please log in with Spotify first.", true);
+                return;
+            }
+
             const jsonOutput = document.getElementById("jsonOutput");
-            if (!jsonOutput.value.trim()) return;
+            const jsonText = jsonOutput.value.trim();
 
-            const blob = new Blob([jsonOutput.value], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
+            if (!jsonText) {
+                showImportStatus("Please paste JSON content in the textarea above.", true);
+                return;
+            }
 
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "tracks.json";
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            let importedTracks;
+            try {
+                importedTracks = JSON.parse(jsonText);
+            } catch (e) {
+                showImportStatus("Invalid JSON format: " + e.message, true);
+                return;
+            }
 
-            URL.revokeObjectURL(url);
+            if (!Array.isArray(importedTracks)) {
+                showImportStatus("JSON must be an array of track objects.", true);
+                return;
+            }
+
+            if (importedTracks.length === 0) {
+                showImportStatus("JSON array is empty.", true);
+                return;
+            }
+
+            // Clear current tracks
+            builderTracks.length = 0;
+
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (let i = 0; i < importedTracks.length; i++) {
+                const jsonTrack = importedTracks[i];
+
+                if (!jsonTrack.uri) {
+                    console.warn(`Track ${i + 1}: Missing 'uri' field, skipping.`);
+                    errorCount++;
+                    continue;
+                }
+
+                const parsed = buildUriFromInput(jsonTrack.uri);
+                if (!parsed) {
+                    console.warn(`Track ${i + 1}: Invalid URI '${jsonTrack.uri}', skipping.`);
+                    errorCount++;
+                    continue;
+                }
+
+                try {
+                    // Fetch track metadata from Spotify API
+                    const data = await spotifyFetch("GET", "/tracks/" + parsed.id);
+                    const fullDurationMs = data.duration_ms || 0;
+
+                    if (!fullDurationMs) {
+                        console.warn(`Track ${i + 1}: No duration_ms from API, skipping.`);
+                        errorCount++;
+                        continue;
+                    }
+
+                    const track = {
+                        index: builderTracks.length + 1,
+                        uri: parsed.uri,
+                        trackId: parsed.id,
+                        durationMs: fullDurationMs,
+                        startMs: jsonTrack.startMs || 0,
+                        clipMs: jsonTrack.durationMs || Math.min(2000, fullDurationMs),
+                        meta: {
+                            name: data.name || "Unknown title",
+                            artists: (data.artists || []).map(a => a.name)
+                        }
+                    };
+
+                    builderTracks.push(track);
+                    successCount++;
+
+                } catch (e) {
+                    console.error(`Track ${i + 1}: Could not fetch metadata:`, e);
+                    errorCount++;
+                }
+            }
+
+            renderTracks();
+
+            if (errorCount > 0) {
+                showImportStatus(
+                    `Imported ${successCount} track(s). ${errorCount} failed (see console for details).`,
+                    true
+                );
+            } else {
+                showImportStatus(`Successfully imported ${successCount} track(s).`, false);
+            }
         }
 
         // =====================
@@ -807,7 +907,7 @@
             });
 
             document.getElementById("exportJsonBtn").addEventListener("click", exportJson);
-            document.getElementById("downloadJsonBtn").addEventListener("click", downloadJson);
+            document.getElementById("importJsonBtn").addEventListener("click", importJson);
 
             await handleRedirectCallback();
 
