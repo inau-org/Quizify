@@ -1,45 +1,4 @@
-// storage.js
-
-const STORAGE_PREFIX = "tracks_";
-
-/**
- * Internal: read all existing tracks from localStorage.
- * Returns:
- *  - items: [{ index, track }]
- *  - idToIndex: { [id]: index }
- *  - maxIndex: highest numeric index used
- */
-function readExistingTracks() {
-    const items = [];
-    const idToIndex = {};
-    let maxIndex = -1;
-
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (!key || !key.startsWith(STORAGE_PREFIX)) continue;
-
-        const indexStr = key.slice(STORAGE_PREFIX.length);
-        const index = parseInt(indexStr, 10);
-        if (Number.isNaN(index)) continue;
-
-        try {
-            const raw = localStorage.getItem(key);
-            if (raw == null) continue;
-
-            const track = JSON.parse(raw);
-            items.push({ index, track });
-            maxIndex = Math.max(maxIndex, index);
-
-            if (track && typeof track === "object" && track.id != null) {
-                idToIndex[String(track.id)] = index;
-            }
-        } catch (err) {
-            console.warn("Failed to parse track from localStorage for key:", key, err);
-        }
-    }
-
-    return { items, idToIndex, maxIndex };
-}
+const STORAGE_KEY = "tracks_json";
 
 /**
  * Internal: normalize data (array or single object) into an array.
@@ -51,74 +10,89 @@ function normalizeTrackList(data) {
 }
 
 /**
- * Save or merge a list of tracks (array or single object).
- * - New IDs are appended as new `tracks_N` keys.
- * - Existing IDs overwrite the existing `tracks_N` entry.
+ * Internal: read the entire track list from localStorage.
  *
- * Each track is expected to be an object, optionally with a unique `id` field.
+ * Returns:
+ *  - list: array of track objects (may be empty)
+ */
+function readTrackList() {
+    let list = [];
+
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw != null) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                list = parsed;
+            } else {
+                console.warn("Stored track data is not an array. Resetting.");
+            }
+        }
+    } catch (err) {
+        console.warn("Failed to parse track list from localStorage:", err);
+    }
+
+    return { list };
+}
+
+/**
+ * Save a list of tracks (array or single object) under a single key.
+ *
+ * The data format matches `tracks.json`:
+ * [
+ *   {
+ *     "id": "clip1",
+ *     "name": "song 1",
+ *     "uri": "spotify:track:...",
+ *     "startMs": 30000,
+ *     "durationMs": 2000
+ *   },
+ *   ...
+ * ]
  */
 export function saveTracks(tracks) {
     const list = normalizeTrackList(tracks);
-    if (!list.length) return;
+    if (!list.length) {
+        // If you want to clear when given empty, uncomment:
+        // localStorage.removeItem(STORAGE_KEY);
+        return;
+    }
 
-    const { idToIndex, maxIndex } = readExistingTracks();
-    let nextIndex = maxIndex + 1;
-
-    for (const track of list) {
-        if (!track || typeof track !== "object") {
-            console.warn("Skipping non-object track:", track);
-            continue;
-        }
-
-        let index;
-        const hasId = track.id != null;
-        if (hasId && idToIndex.hasOwnProperty(String(track.id))) {
-            // Overwrite existing entry for this id
-            index = idToIndex[String(track.id)];
-        } else {
-            // Append new entry
-            index = nextIndex++;
-        }
-
-        const key = STORAGE_PREFIX + index;
-        try {
-            localStorage.setItem(key, JSON.stringify(track));
-        } catch (err) {
-            console.error("Failed to save track to localStorage:", track, err);
-            // optional: break out or rethrow if you want hard failure
-        }
+    try {
+        const jsonString = JSON.stringify(list);
+        localStorage.setItem(STORAGE_KEY, jsonString);
+    } catch (err) {
+        console.error("Failed to save track list to localStorage:", err);
     }
 }
 
 /**
- * Get all tracks from localStorage in ascending index order.
- * Returns an array of track objects.
+ * Get all tracks as an array of objects.
  */
 export function getAllTracks() {
-    const { items } = readExistingTracks();
-    return items
-        .sort((a, b) => a.index - b.index)
-        .map((entry) => entry.track);
+    const { list } = readTrackList();
+    return list;
 }
 
 /**
- * Clear all tracks_* entries from localStorage.
+ * Get all tracks as a JSON string.
+ * `pretty = true` will format with indentation (nice for textareas / files).
+ */
+export function getTracksAsString(pretty = true) {
+    const tracks = getAllTracks();
+    return pretty ? JSON.stringify(tracks, null, 2) : JSON.stringify(tracks);
+}
+
+/**
+ * Clear the stored track list.
  */
 export function clearAllTracks() {
-    const keysToRemove = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(STORAGE_PREFIX)) {
-            keysToRemove.push(key);
-        }
-    }
-    for (const key of keysToRemove) {
-        localStorage.removeItem(key);
-    }
+    localStorage.removeItem(STORAGE_KEY);
 }
 
 /**
- * Save tracks from a JSON string (e.g. from a textview or a raw string).
+ * Save tracks from a JSON string (e.g. from a textfield or raw string).
+ *
  * The JSON may be:
  *  - an array of track objects
  *  - a single track object
@@ -140,7 +114,7 @@ export function saveTracksFromString(jsonString) {
 }
 
 /**
- * Save tracks from the value of a textview / textarea element.
+ * Save tracks from the value of a textfield / textarea element.
  *
  * Example usage in HTML:
  *   <textarea id="trackInput"></textarea>
@@ -162,10 +136,31 @@ export function saveTracksFromTextView(elementIdOrElement) {
 }
 
 /**
+ * Load tracks from localStorage and put the JSON into a textfield / textarea.
+ *
+ * Example:
+ *   <textarea id="trackOutput"></textarea>
+ *   <button onclick="loadTracksIntoTextView('trackOutput')">Load</button>
+ */
+export function loadTracksIntoTextView(elementIdOrElement, pretty = true) {
+    let el = elementIdOrElement;
+
+    if (typeof elementIdOrElement === "string") {
+        el = document.getElementById(elementIdOrElement);
+    }
+
+    if (!el || !("value" in el)) {
+        throw new Error("loadTracksIntoTextView: invalid element or element id");
+    }
+
+    el.value = getTracksAsString(pretty);
+}
+
+/**
  * Save tracks from a JSON file hosted on the same or remote server.
- * `url` should point to a JSON resource:
- *  - either an array of track objects
- *  - or a single track object
+ * `url` should point to JSON with:
+ *  - an array of track objects, or
+ *  - a single track object
  */
 export async function saveTracksFromUrl(url) {
     if (!url || typeof url !== "string") {
@@ -186,15 +181,46 @@ export async function saveTracksFromUrl(url) {
         throw error;
     }
 
-    let data;
     try {
         // Try parsing as JSON directly
-        data = await response.json();
+        const data = await response.json();
+        saveTracks(data);
     } catch (err) {
         console.warn("Response was not directly parseable as JSON, trying as text:", err);
         const text = await response.text();
         return saveTracksFromString(text);
     }
+}
 
-    saveTracks(data);
+/**
+ * Save tracks from a local JSON file selected via <input type="file">.
+ *
+ * Example usage in HTML:
+ *   <input type="file" id="fileInput" accept="application/json"
+ *          onchange="importFromFile(this.files[0])" />
+ */
+export function saveTracksFromFile(file) {
+    if (!file || !(file instanceof File)) {
+        throw new Error("saveTracksFromFile expects a File object");
+    }
+
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            try {
+                const text = reader.result;
+                saveTracksFromString(String(text));
+                resolve();
+            } catch (err) {
+                reject(err);
+            }
+        };
+
+        reader.onerror = () => {
+            reject(reader.error || new Error("Unknown FileReader error"));
+        };
+
+        reader.readAsText(file, "utf-8");
+    });
 }
