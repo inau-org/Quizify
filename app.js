@@ -1,4 +1,3 @@
-// =====================
 //   CONFIG
 // =====================
 
@@ -18,6 +17,12 @@ const SCOPES = [
 
 let accessToken = null;
 let tracks = [];
+
+// Expose accessToken globally so storage-ui-helpers.js can access it
+Object.defineProperty(window, 'accessToken', {
+    get() { return accessToken; },
+    set(value) { accessToken = value; }
+});
 
 // =====================
 //   PKCE HELPERS
@@ -57,7 +62,7 @@ async function createCodeChallenge(codeVerifier) {
 // =====================
 
 function updateAuthStatus(message) {
-    const statusEl = document.getElementById("status");
+    const statusEl = document.getElementById("loginStatus");
     const loginBtn = document.getElementById("loginBtn");
 
     if (!statusEl || !loginBtn) return;

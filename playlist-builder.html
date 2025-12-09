@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Spotify Quiz � Playlist Builder</title>
+    <title>Spotify Quiz – Playlist Builder</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <!-- Bootstrap CSS -->
@@ -60,8 +60,8 @@
         <div class="card shadow-sm mb-4">
             <div class="card-body d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
-                    <h1 class="h3 mb-1">Spotify Quiz � Playlist Builder</h1>
-                    <p id="status" class="mb-0 text-muted">Checking login status�</p>
+                    <h1 class="h3 mb-1">Spotify Quiz – Playlist Builder</h1>
+                    <p id="loginStatus" class="mb-0 text-muted">Checking login status…</p>
                     <div id="errorBox" class="text-danger small mt-1"></div>
                 </div>
                 <div class="text-md-end">
@@ -88,7 +88,7 @@
                                class="form-control"
                                placeholder="spotify:track:ID or https://open.spotify.com/track/ID?si=..." />
                         <div class="form-text">
-                            Paste a track URI or URL. We�ll fetch metadata and set slider limits automatically.
+                            Paste a track URI or URL. We'll fetch metadata and set slider limits automatically.
                         </div>
                     </div>
                     <div class="col-12 col-md-4 d-flex justify-content-md-end">
@@ -223,7 +223,7 @@
         // =====================
 
         function updateAuthStatus(message) {
-            const statusEl = document.getElementById("status");
+            const statusEl = document.getElementById("loginStatus");
             const loginBtn = document.getElementById("loginBtn");
 
             if (!statusEl || !loginBtn) return;
@@ -319,13 +319,13 @@
 
             const storedState = sessionStorage.getItem("spotify_builder_pkce_state");
             if (storedState && returnedState && storedState !== returnedState) {
-                showError("State mismatch � login aborted.");
+                showError("State mismatch – login aborted.");
                 return;
             }
 
             const codeVerifier = sessionStorage.getItem("spotify_builder_pkce_code_verifier");
             if (!codeVerifier) {
-                showError("Missing code_verifier � please log in again.");
+                showError("Missing code_verifier – please log in again.");
                 return;
             }
 
@@ -495,7 +495,7 @@
                     noTracksHint.classList.remove("d-none");
                     container.appendChild(noTracksHint);
                 } else {
-                    // Fallback text if hint element doesn�t exist
+                    // Fallback text if hint element doesn't exist
                     container.textContent = "No tracks yet. Add one using the field above.";
                 }
                 return;
@@ -523,7 +523,7 @@
                 const metaLabel = document.createElement("div");
                 metaLabel.className = "small text-muted";
                 const artist = (t.meta.artists || []).join(", ");
-                metaLabel.textContent = `${t.meta.name} � ${artist} (${msToSecondsLabel(t.durationMs)} total)`;
+                metaLabel.textContent = `${t.meta.name} – ${artist} (${msToSecondsLabel(t.durationMs)} total)`;
 
                 leftHeader.appendChild(songLabel);
                 leftHeader.appendChild(metaLabel);
