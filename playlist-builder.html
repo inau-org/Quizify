@@ -76,6 +76,30 @@
             </div>
         </div>
 
+        <!-- Playlist Selection -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h5 mb-3">Select Playlist</h2>
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-8">
+                        <label for="playlistSelect" class="form-label">Current Playlist</label>
+                        <select id="playlistSelect" class="form-select">
+                            <option value="">(No playlists available)</option>
+                        </select>
+                        <div class="form-text">
+                            Select a playlist to edit, or create a new one.
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 d-flex gap-2 justify-content-md-end">
+                        <button id="newPlaylistBtn" class="btn btn-outline-primary w-100 w-md-auto mt-3 mt-md-0">
+                            <i class="bi bi-plus-lg"></i> New Playlist
+                        </button>
+                    </div>
+                </div>
+                <div id="playlistStatus" class="mt-2 small"></div>
+            </div>
+        </div>
+
         <!-- Add track -->
         <div class="card shadow-sm mb-4">
             <div class="card-body">
@@ -104,35 +128,15 @@
         <!-- Tracks list -->
         <div class="card shadow-sm mb-4">
             <div class="card-body">
-                <h2 class="h5 mb-3">Tracks in playlist</h2>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h5 mb-0">Tracks in playlist</h2>
+                    <button id="saveToStorageBtn" class="btn btn-success" disabled>
+                        Save Changes
+                    </button>
+                </div>
                 <div id="tracksContainer" class="d-grid gap-3">
                     <div id="noTracksHint" class="text-muted small">
                         No tracks yet. Add one using the field above.
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Save to localStorage -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-body">
-                <h2 class="h5 mb-3">Save to localStorage</h2>
-                <div class="row g-3 align-items-end">
-                    <div class="col-12 col-md-8">
-                        <label for="playlistNameInput" class="form-label">Playlist name</label>
-                        <input type="text"
-                               id="playlistNameInput"
-                               class="form-control"
-                               placeholder="my-awesome-playlist"
-                               value="default" />
-                        <div class="form-text">
-                            This will be saved as <code>tracklist:&lt;name&gt;</code> in localStorage. If it already exists, it will be overwritten.
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-4 d-flex justify-content-md-end">
-                        <button id="saveToStorageBtn" class="btn btn-success w-100 w-md-auto mt-3 mt-md-0">
-                            Save to localStorage
-                        </button>
                     </div>
                 </div>
                 <div id="saveStatus" class="mt-2 small"></div>
@@ -174,15 +178,43 @@
         </div>
     </div>
 
+    <!-- New Playlist Modal -->
+    <div class="modal fade" id="newPlaylistModal" tabindex="-1" aria-labelledby="newPlaylistModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="newPlaylistModalLabel">Create New Playlist</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="newPlaylistNameInput" class="form-label">Playlist Name</label>
+                        <input type="text"
+                               class="form-control"
+                               id="newPlaylistNameInput"
+                               placeholder="e.g., my-awesome-playlist"
+                               autocomplete="off" />
+                        <div class="form-text">
+                            This will be saved as <code>tracklist:&lt;name&gt;</code> in localStorage.
+                        </div>
+                    </div>
+                    <div id="newPlaylistError" class="text-danger small"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="createPlaylistBtn">Create Playlist</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         // =====================
         //   CONFIG
         // =====================
 
-        // TODO: set these:
-        const CLIENT_ID = "0bbfd2ff3da1471dae3b2e35b0714720"; // same as quiz app
+        const CLIENT_ID = "0bbfd2ff3da1471dae3b2e35b0714720";
         const REDIRECT_URI = "https://inau-org.github.io/Quizify/playlist-builder.html";
-        // add this URI in your Spotify app's Redirect URIs
 
         const SCOPES = [
             "user-modify-playback-state",
@@ -195,6 +227,10 @@
 
         let accessToken = null;
         const builderTracks = []; // { index, uri, trackId, durationMs, startMs, clipMs, meta }
+        let currentPlaylistName = null; // Currently selected playlist
+
+        // Storage prefix
+        const STORAGE_PREFIX = "tracklist:";
 
         // =====================
         //   PKCE HELPERS
@@ -271,6 +307,27 @@
                 box.textContent = msg || "";
                 box.className = isError ? "mt-2 small text-danger" : "mt-2 small text-success";
             }
+        }
+
+        function showSaveStatus(msg, isError = false) {
+            const box = document.getElementById("saveStatus");
+            if (box) {
+                box.textContent = msg || "";
+                box.className = isError ? "mt-2 small text-danger" : "mt-2 small text-success";
+            }
+        }
+
+        function showPlaylistStatus(msg, isError = false) {
+            const box = document.getElementById("playlistStatus");
+            if (box) {
+                box.textContent = msg || "";
+                box.className = isError ? "mt-2 small text-danger" : "mt-2 small text-success";
+            }
+        }
+
+        function showNewPlaylistError(msg) {
+            const box = document.getElementById("newPlaylistError");
+            if (box) box.textContent = msg || "";
         }
 
         function storeToken(token, expiresInSeconds) {
@@ -455,6 +512,182 @@
         }
 
         // =====================
+        //   PLAYLIST MANAGEMENT
+        // =====================
+
+        function getAllPlaylistNames() {
+            const names = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith(STORAGE_PREFIX)) {
+                    names.push(key.slice(STORAGE_PREFIX.length));
+                }
+            }
+            return names;
+        }
+
+        function loadPlaylistFromStorage(name) {
+            const key = STORAGE_PREFIX + name;
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+
+            try {
+                const data = JSON.parse(raw);
+                return Array.isArray(data) ? data : null;
+            } catch (e) {
+                console.error("Failed to parse playlist:", e);
+                return null;
+            }
+        }
+
+        function savePlaylistToStorage(name, tracks) {
+            const key = STORAGE_PREFIX + name;
+            try {
+                localStorage.setItem(key, JSON.stringify(tracks));
+                return true;
+            } catch (e) {
+                console.error("Failed to save playlist:", e);
+                return false;
+            }
+        }
+
+        function populatePlaylistDropdown() {
+            const selectEl = document.getElementById("playlistSelect");
+            const names = getAllPlaylistNames();
+
+            selectEl.innerHTML = "";
+
+            if (names.length === 0) {
+                const opt = document.createElement("option");
+                opt.value = "";
+                opt.textContent = "(No playlists available)";
+                selectEl.appendChild(opt);
+                updateSaveButton();
+                return;
+            }
+
+            // Add placeholder
+            const placeholder = document.createElement("option");
+            placeholder.value = "";
+            placeholder.textContent = "-- Select a playlist --";
+            selectEl.appendChild(placeholder);
+
+            // Add all playlists
+            names.forEach(name => {
+                const opt = document.createElement("option");
+                opt.value = name;
+                opt.textContent = name;
+                selectEl.appendChild(opt);
+            });
+
+            // Restore previous selection if available
+            if (currentPlaylistName && names.includes(currentPlaylistName)) {
+                selectEl.value = currentPlaylistName;
+            }
+
+            updateSaveButton();
+        }
+
+        function loadSelectedPlaylist() {
+            const selectEl = document.getElementById("playlistSelect");
+            const selectedName = selectEl.value;
+
+            if (!selectedName) {
+                currentPlaylistName = null;
+                builderTracks.length = 0;
+                renderTracks();
+                showPlaylistStatus("No playlist selected.", true);
+                updateSaveButton();
+                return;
+            }
+
+            const tracks = loadPlaylistFromStorage(selectedName);
+            if (!tracks) {
+                showPlaylistStatus(`Could not load playlist "${selectedName}".`, true);
+                return;
+            }
+
+            currentPlaylistName = selectedName;
+            builderTracks.length = 0;
+
+            // Convert stored tracks to builder format
+            tracks.forEach((t, idx) => {
+                builderTracks.push({
+                    index: idx + 1,
+                    uri: t.uri,
+                    trackId: extractTrackId(t.uri),
+                    durationMs: 0, // Will be fetched if needed
+                    startMs: t.startMs || 0,
+                    clipMs: t.durationMs || 2000,
+                    meta: {
+                        name: t.name || `Song #${idx + 1}`,
+                        artists: []
+                    }
+                });
+            });
+
+            renderTracks();
+            showPlaylistStatus(`Loaded "${selectedName}" with ${tracks.length} track(s).`, false);
+            updateSaveButton();
+        }
+
+        function updateSaveButton() {
+            const saveBtn = document.getElementById("saveToStorageBtn");
+            if (currentPlaylistName) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = `Save to "${currentPlaylistName}"`;
+            } else {
+                saveBtn.disabled = true;
+                saveBtn.textContent = "Save Changes";
+            }
+        }
+
+        function createNewPlaylist() {
+            const nameInput = document.getElementById("newPlaylistNameInput");
+            const playlistName = nameInput.value.trim();
+
+            showNewPlaylistError("");
+
+            if (!playlistName) {
+                showNewPlaylistError("Please enter a playlist name.");
+                return;
+            }
+
+            // Check if playlist already exists
+            const existingNames = getAllPlaylistNames();
+            if (existingNames.includes(playlistName)) {
+                showNewPlaylistError(`Playlist "${playlistName}" already exists.`);
+                return;
+            }
+
+            // Create empty playlist
+            if (!savePlaylistToStorage(playlistName, [])) {
+                showNewPlaylistError("Failed to create playlist.");
+                return;
+            }
+
+            // Update UI
+            populatePlaylistDropdown();
+            const selectEl = document.getElementById("playlistSelect");
+            selectEl.value = playlistName;
+            currentPlaylistName = playlistName;
+
+            // Clear tracks
+            builderTracks.length = 0;
+            renderTracks();
+
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById("newPlaylistModal"));
+            modal.hide();
+
+            // Clear input
+            nameInput.value = "";
+
+            showPlaylistStatus(`Created new playlist "${playlistName}".`, false);
+            updateSaveButton();
+        }
+
+        // =====================
         //   HELPER: URI / ID
         // =====================
 
@@ -502,7 +735,6 @@
         function renderTracks() {
             const container = document.getElementById("tracksContainer");
             if (!container) {
-                // Not on a page that has the builder UI; nothing to do
                 return;
             }
 
@@ -514,7 +746,6 @@
                     noTracksHint.classList.remove("d-none");
                     container.appendChild(noTracksHint);
                 } else {
-                    // Fallback text if hint element doesn't exist
                     container.textContent = "No tracks yet. Add one using the field above.";
                 }
                 return;
@@ -542,7 +773,9 @@
                 const metaLabel = document.createElement("div");
                 metaLabel.className = "small text-muted";
                 const artist = (t.meta.artists || []).join(", ");
-                metaLabel.textContent = `${t.meta.name} – ${artist} (${msToSecondsLabel(t.durationMs)} total)`;
+                metaLabel.textContent = t.durationMs > 0
+                    ? `${t.meta.name} – ${artist} (${msToSecondsLabel(t.durationMs)} total)`
+                    : `${t.meta.name} – ${artist}`;
 
                 leftHeader.appendChild(songLabel);
                 leftHeader.appendChild(metaLabel);
@@ -579,14 +812,14 @@
                 const startRange = document.createElement("input");
                 startRange.type = "range";
                 startRange.min = "0";
-                startRange.max = String(Math.max(0, t.durationMs - 500));
+                startRange.max = String(Math.max(0, t.durationMs > 0 ? t.durationMs - 500 : 300000));
                 startRange.value = String(t.startMs);
                 startRange.className = "form-range";
                 startRange.step = "10";
 
                 const startLimits = document.createElement("div");
                 startLimits.className = "small text-muted d-flex justify-content-between";
-                startLimits.innerHTML = `<span>Min: 0 ms</span><span>Max: ${t.durationMs} ms</span>`;
+                startLimits.innerHTML = `<span>Min: 0 ms</span><span>Max: ${t.durationMs > 0 ? t.durationMs : 300000} ms</span>`;
 
                 startGroup.appendChild(startLabelRow);
                 startGroup.appendChild(startRange);
@@ -611,14 +844,14 @@
                 const durRange = document.createElement("input");
                 durRange.type = "range";
                 durRange.min = "200";
-                durRange.max = String(t.durationMs);
+                durRange.max = String(t.durationMs > 0 ? t.durationMs : 300000);
                 durRange.value = String(t.clipMs);
                 durRange.className = "form-range";
                 durRange.step = "10";
 
                 const durLimits = document.createElement("div");
                 durLimits.className = "small text-muted d-flex justify-content-between";
-                durLimits.innerHTML = `<span>Min: 200 ms</span><span>Max: ${t.durationMs} ms</span>`;
+                durLimits.innerHTML = `<span>Min: 200 ms</span><span>Max: ${t.durationMs > 0 ? t.durationMs : 300000} ms</span>`;
 
                 durGroup.appendChild(durLabelRow);
                 durGroup.appendChild(durRange);
@@ -631,7 +864,7 @@
                 startRange.addEventListener("input", () => {
                     const newStart = Number(startRange.value);
                     t.startMs = Math.max(0, newStart);
-                    const maxClip = Math.max(200, t.durationMs - t.startMs);
+                    const maxClip = Math.max(200, (t.durationMs > 0 ? t.durationMs : 300000) - t.startMs);
                     if (t.clipMs > maxClip) {
                         t.clipMs = maxClip;
                         durRange.value = String(t.clipMs);
@@ -642,7 +875,7 @@
 
                 durRange.addEventListener("input", () => {
                     let newClip = Number(durRange.value);
-                    const maxClip = Math.max(200, t.durationMs - t.startMs);
+                    const maxClip = Math.max(200, (t.durationMs > 0 ? t.durationMs : 300000) - t.startMs);
                     if (newClip > maxClip) {
                         newClip = maxClip;
                         durRange.value = String(newClip);
@@ -710,6 +943,11 @@
                 return;
             }
 
+            if (!currentPlaylistName) {
+                showBuilderError("Please select or create a playlist first.");
+                return;
+            }
+
             const spotifyInput = document.getElementById("spotifyInput");
             const rawInput = spotifyInput.value.trim();
             if (!rawInput) {
@@ -757,6 +995,47 @@
         }
 
         // =====================
+        //   SAVE TO LOCALSTORAGE
+        // =====================
+
+        function saveToLocalStorage() {
+            showSaveStatus("");
+
+            if (!currentPlaylistName) {
+                showSaveStatus("Please select a playlist first.", true);
+                return;
+            }
+
+            if (builderTracks.length === 0) {
+                showSaveStatus("No tracks to save. Add some tracks first.", true);
+                return;
+            }
+
+            try {
+                const tracksToSave = builderTracks.map((t, idx) => ({
+                    id: "clip" + (idx + 1),
+                    name: "Song #" + (idx + 1),
+                    uri: t.uri,
+                    startMs: t.startMs,
+                    durationMs: t.clipMs
+                }));
+
+                if (!savePlaylistToStorage(currentPlaylistName, tracksToSave)) {
+                    throw new Error("Failed to save to localStorage");
+                }
+
+                showSaveStatus(
+                    `Successfully saved ${builderTracks.length} track(s) to "${currentPlaylistName}".`,
+                    false
+                );
+
+            } catch (e) {
+                console.error("Save error:", e);
+                showSaveStatus("Failed to save to localStorage: " + e.message, true);
+            }
+        }
+
+        // =====================
         //   EXPORT / IMPORT
         // =====================
 
@@ -785,6 +1064,11 @@
 
             if (!accessToken) {
                 showImportStatus("Please log in with Spotify first.", true);
+                return;
+            }
+
+            if (!currentPlaylistName) {
+                showImportStatus("Please select or create a playlist first.", true);
                 return;
             }
 
@@ -898,6 +1182,15 @@
                 });
             }
 
+            // Playlist management
+            document.getElementById("playlistSelect").addEventListener("change", loadSelectedPlaylist);
+            document.getElementById("newPlaylistBtn").addEventListener("click", () => {
+                const modal = new bootstrap.Modal(document.getElementById("newPlaylistModal"));
+                modal.show();
+            });
+            document.getElementById("createPlaylistBtn").addEventListener("click", createNewPlaylist);
+
+            // Track management
             document.getElementById("addTrackBtn").addEventListener("click", addTrackFromInput);
             document.getElementById("spotifyInput").addEventListener("keydown", (e) => {
                 if (e.key === "Enter") {
@@ -906,8 +1199,12 @@
                 }
             });
 
+            // Import/Export
             document.getElementById("exportJsonBtn").addEventListener("click", exportJson);
             document.getElementById("importJsonBtn").addEventListener("click", importJson);
+
+            // Save
+            document.getElementById("saveToStorageBtn").addEventListener("click", saveToLocalStorage);
 
             await handleRedirectCallback();
 
@@ -918,7 +1215,7 @@
 
             updateAuthStatus();
             checkDevices();
-            renderTracks();
+            populatePlaylistDropdown();
         });
     </script>
 
