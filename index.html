@@ -72,23 +72,36 @@
         </div>
 
         <!-- Track lists -->
-        <h1 class="mb-4">Tracks from localStorage</h1>
+        <div class="container py-4">
+            <h1 class="mb-4">Playlists from localStorage</h1>
 
-        <div class="mb-3">
-            <label for="trackSelect" class="form-label fw-semibold">Select track:</label>
+            <div class="card shadow-sm">
+                <div class="card-body">
 
-            <div class="input-group">
-                <select id="trackSelect" class="form-select">
-                    <option value="">(no tracks loaded yet)</option>
-                </select>
+                    <div class="mb-3">
+                        <label for="playlistSelect" class="form-label fw-semibold">
+                            Select playlist
+                        </label>
 
-                <!-- Button to (re)load from local JSON file -->
-                <button id="loadFromFileBtn" class="btn btn-primary">
-                    Load from tracks.json
-                </button>
+                        <div class="input-group">
+                            <select id="playlistSelect" class="form-select">
+                                <option value="">(no playlists loaded yet)</option>
+                            </select>
+
+                            <!-- (Re)load playlists from local JSON file -->
+                            <button id="loadFromFileBtn" class="btn btn-outline-secondary">
+                                Load from tracks.json
+                            </button>
+                        </div>
+
+                        <div id="status" class="form-text mt-2"></div>
+                    </div>
+
+                    <button id="usePlaylistBtn" class="btn btn-primary">
+                        Use selected playlist
+                    </button>
+                </div>
             </div>
-
-            <div id="status" class="form-text mt-2"></div>
         </div>
 
         <!-- Tracks -->
@@ -107,139 +120,17 @@
     <script src="app.js"></script>
 
     <script type="module">
-        import {
-            getAllTracks,
-            saveTracksFromUrl
-        } from './storage.js';
+        import { getAllTracks, saveTracksFromUrl } from "./storage.js";
+        import { populateDropdown } from "./storage-ui-helpers.js"; // optional helper
 
-        const selectEl = document.getElementById('trackSelect');
-        const itemsEl = document.getElementById('trackItems');
-        const statusEl = document.getElementById('status');
-        const loadBtn = document.getElementById('loadFromFileBtn');
-
-        let currentTracks = [];
-
-        // ---- Helpers --------------------------------------------------------
-
-        function getTrackLabel(track, index) {
-            return track.name || track.title || track.id || `Track #${index + 1}`;
+        if (getAllTracks().length === 0) {
+            await saveTracksFromUrl("./tracks.json");
         }
 
-        function populateDropdown(tracks) {
-            currentTracks = tracks;
-            selectEl.innerHTML = '';
-
-            if (!tracks.length) {
-                const opt = document.createElement('option');
-                opt.value = '';
-                opt.textContent = '(no tracks found)';
-                selectEl.appendChild(opt);
-                return;
-            }
-
-            const placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = 'Choose a track…';
-            selectEl.appendChild(placeholder);
-
-            tracks.forEach((track, idx) => {
-                const opt = document.createElement('option');
-                opt.value = String(idx);
-                opt.textContent = getTrackLabel(track, idx);
-                selectEl.appendChild(opt);
-            });
-        }
-
-        function renderSelectedTrack(index) {
-            itemsEl.innerHTML = '';
-
-            if (index == null || index === '' || isNaN(index)) return;
-            const idx = Number(index);
-            const track = currentTracks[idx];
-            if (!track) return;
-
-            // Try common property names for the track "items"
-            const list =
-                track.items ||
-                track.list ||
-                track.questions ||
-                track.entries ||
-                [];
-
-            if (!Array.isArray(list)) {
-                const li = document.createElement('li');
-                li.textContent = '(No items array on this track; showing raw JSON below)';
-                itemsEl.appendChild(li);
-
-                const liJson = document.createElement('li');
-                liJson.textContent = JSON.stringify(track, null, 2);
-                itemsEl.appendChild(liJson);
-                return;
-            }
-
-            if (!list.length) {
-                const li = document.createElement('li');
-                li.textContent = '(This track has no items)';
-                itemsEl.appendChild(li);
-                return;
-            }
-
-            list.forEach((item, i) => {
-                const li = document.createElement('li');
-                if (typeof item === 'string') {
-                    li.textContent = item;
-                } else if (item && typeof item === 'object') {
-                    // Try some common fields, fall back to JSON
-                    const label =
-                        item.name ||
-                        item.title ||
-                        item.question ||
-                        `Item #${i + 1}`;
-                    li.textContent = label;
-                } else {
-                    li.textContent = String(item);
-                }
-                itemsEl.appendChild(li);
-            });
-        }
-
-        async function importFromLocalFile() {
-            statusEl.textContent = 'Loading tracks from tracks.json…';
-            try {
-                await saveTracksFromUrl('./tracks.json');
-                const tracks = getAllTracks();
-                populateDropdown(tracks);
-                statusEl.textContent = `Loaded ${tracks.length} track(s) from tracks.json and saved to localStorage.`;
-            } catch (err) {
-                console.error(err);
-                statusEl.textContent = 'Failed to load tracks from tracks.json (see console).';
-            }
-        }
-
-        // ---- Event Listeners -----------------------------------------------
-
-        selectEl.addEventListener('change', (e) => {
-            renderSelectedTrack(e.target.value);
-        });
-
-        loadBtn.addEventListener('click', () => {
-            importFromLocalFile();
-        });
-
-        // ---- Init -----------------------------------------------------------
-
-        (async function init() {
-            // 1) Try to read from localStorage
-            const stored = getAllTracks();
-
-            if (!stored.length) {
-                // 2) If empty: import from local file once
-                await importFromLocalFile();
-            } else {
-                populateDropdown(stored);
-                statusEl.textContent = `Loaded ${stored.length} track(s) from localStorage.`;
-            }
-        })();
+        populateDropdown(
+            document.getElementById("playlistSelect"),
+            getAllTracks()
+        );
     </script>
 
     <!-- (Optional) Bootstrap JS if you ever need components like modals/dropdowns -->
