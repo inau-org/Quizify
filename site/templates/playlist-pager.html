@@ -1,0 +1,53 @@
+<!-- Playlist Selection -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h2 class="h5 mb-3">Select Playlist</h2>
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-8">
+                <label for="playlistSelect" class="form-label">Current Playlist</label>
+                <select id="playlistSelect" class="form-select">
+                    <option value="">(No playlists available)</option>
+                </select>
+                <div class="form-text">
+                    Select a playlist to edit, or create a new one.
+                </div>
+            </div>
+            <div class="col-12 col-md-4 d-flex gap-2 justify-content-md-end">
+                <button id="newPlaylistBtn" class="btn btn-outline-primary w-100 w-md-auto mt-3 mt-md-0">
+                    <i class="bi bi-plus-lg"></i> New Playlist
+                </button>
+            </div>
+        </div>
+        <div id="playlistStatus" class="mt-2 small"></div>
+    </div>
+</div>
+
+<!-- New Playlist Modal -->
+<div class="modal fade" id="newPlaylistModal" tabindex="-1" aria-labelledby="newPlaylistModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newPlaylistModalLabel">Create New Playlist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newPlaylistNameInput" class="form-label">Playlist Name</label>
+                    <input type="text"
+                            class="form-control"
+                            id="newPlaylistNameInput"
+                            placeholder="e.g., my-awesome-playlist"
+                            autocomplete="off" />
+                    <div class="form-text">
+                        This will be saved as <code>tracklist:&lt;name&gt;</code> in localStorage.
+                    </div>
+                </div>
+                <div id="newPlaylistError" class="text-danger small"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createPlaylistBtn">Create Playlist</button>
+            </div>
+        </div>
+    </div>
+</div>

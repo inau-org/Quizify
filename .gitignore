@@ -1,5 +1,23 @@
 ﻿################################################################################
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+/venv
 
-/.vs
+# SSL certificates
+*.pem
+*.key
+cert.pem
+key.pem
+
+# VS Code
+.vs
+bin
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

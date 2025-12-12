@@ -3,7 +3,12 @@
 
 // Set these two:
 const CLIENT_ID = "0bbfd2ff3da1471dae3b2e35b0714720";         // your real client id
-const REDIRECT_URI = "https://inau-org.github.io/Quizify/";    // your real Pages URL
+
+// Detect if running locally
+const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+const REDIRECT_URI = isLocal 
+    ? "http://127.0.0.1:8000/Quizify/" 
+    : "https://inau-org.github.io/Quizify/";    // your real Pages URL
 
 // Scopes
 const SCOPES = [

@@ -1,0 +1,42 @@
+<!-- Header / Login card -->
+<div class="shadow-sm m-4 p-2">
+    <div class="card-body">
+        <!-- First Row: User Profile / Login Button -->
+        <div class="row align-items-center mb-3">
+            <div class="col-12 col-md-8">
+                <p id="loginStatus" class="m-2 text-muted">Checking login status…</p>
+                <div id="errorBox" class="text-danger small mt-1"></div>
+
+                <!-- User profile section (hidden by default) -->
+                <div id="userProfile" class="d-none">
+                    <div class="d-flex align-items-center gap-3">
+                        <img id="userAvatar" src="" alt="Profile" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">
+                        <div>
+                            <h5 id="userName" class="mb-1"></h5>
+                            <div id="deviceStatus" class="small text-muted"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-4 text-md-end">
+                <button id="loginBtn" class="btn btn-success w-100 w-md-auto">
+                    Log in with Spotify
+                </button>
+            </div>
+        </div>
+
+        <!-- Second Row: Device Hint / Open Spotify Button -->
+        <div id="deviceHint" class="row align-items-center">
+            <div class="col-12 col-md-8">
+                <div class="form-text">
+                    Make sure you have an active Spotify playback device (phone, PC, speaker via Spotify Connect).
+                </div>
+            </div>
+            <div class="col-12 col-md-4 text-md-end">
+                <button id="openSpotifyBtn" class="btn btn-outline-secondary w-100 w-md-auto d-none">
+                    Open Spotify
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

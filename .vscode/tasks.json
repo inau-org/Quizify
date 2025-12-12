@@ -1,0 +1,66 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Create Virtual Environment",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-m",
+                "venv",
+                "venv"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Install Dependencies",
+            "type": "shell",
+            "command": ".\\venv\\Scripts\\pip",
+            "args": [
+                "install",
+                "-r",
+                "requirements.txt"
+            ],
+            "dependsOn": ["Create Virtual Environment"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Setup Environment",
+            "dependsOn": [
+                "Create Virtual Environment",
+                "Install Dependencies"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Generate Local Certificates",
+            "type": "shell",
+            "command": ".\\venv\\Scripts\\python",
+            "args": [
+                "-m",
+                "trustme",
+                "--identities",
+                "localhost",
+                "127.0.0.1"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Server",
+            "type": "shell",
+            "command": ".\\venv\\Scripts\\python",
+            "args": [
+                "serve.py",
+                "--cert",
+                "server.pem",
+                "--key",
+                "server.key",
+                "--port",
+                "8000",
+                "--build"
+            ],
+            "problemMatcher": [],
+            "isBackground": true
+        }
+    ]
+}
