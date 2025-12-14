@@ -23,18 +23,26 @@
 </head>
 
 <body class="bg-light">
+    <!-- Templates -->
     <div id="navbar"></div>
-
-    <!-- Header / Login card -->
     <div id="loginCard"></div>
+    <div id="playlistPager"></div>
 
     <!-- Load library -->
     <script src="scripts/templates.js"></script>
     <script src="scripts/spotify-auth.js"></script>
     <script src="scripts/spotify-auth-ui.js"></script>
-    
+    <script src="scripts/storage.js"></script>
+    <script src="scripts/storage-ui.js"></script>
+
     <!-- Your app code -->
     <script type="module">
+        const auth = createAuth(
+                        "0bbfd2ff3da1471dae3b2e35b0714720",
+                        "https://inau-org.github.io/Quizify/"
+                    );
+        const storage = createStorageApi();
+
         await loadTemplates([
             {
                 element: document.getElementById('navbar'),
@@ -44,13 +52,19 @@
                 element: document.getElementById('loginCard'),
                 template: 'login-card',
                 onLoad: async () => {
-                    const auth = createAuth(
-                        "0bbfd2ff3da1471dae3b2e35b0714720",
-                        "https://inau-org.github.io/Quizify/"
-                    );
                     const userData = await updateLoginUI(document, auth);
                     await updateDeviceStatusUI(document, auth);
-                    
+                }
+            },
+            {
+                element: document.getElementById('playlistPager'),
+                template: 'playlist-pager',
+                onLoad: async () => {
+                    await updatePlaylistUI(document, auth, storage, { can_edit: true }, {
+                        onPlaylistChanged: (name) => {
+                            console.log("Selected playlist changed to:", name);
+                        }
+                    });
                 }
             }
         ]);

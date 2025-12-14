@@ -20,9 +20,12 @@
         const key = STORAGE_SELECTION_STATE + uri;
         try {
             localStorage.setItem(key, name);
+            return true;
         } catch (err) {
             console.error("Failed to save track list selection:", err);
         }
+
+        return false;
     }
 
     /**
@@ -33,7 +36,7 @@
 
         const key = STORAGE_SELECTION_STATE + uri;
         const name = localStorage.getItem(key);
-        if (!name) return null;
+        if (!name || name === 'null') return null;
         return name;
     }
 
@@ -50,9 +53,12 @@
 
         try {
             localStorage.setItem(key, JSON.stringify(list));
+            return true;
         } catch (err) {
             console.error("Failed to save track list:", err);
         }
+
+        return false;
     }
 
     /**

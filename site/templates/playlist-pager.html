@@ -1,26 +1,109 @@
 <!-- Playlist Selection -->
-<div class="card shadow-sm mb-4">
-    <div class="card-body">
-        <h2 class="h5 mb-3">Select Playlist</h2>
-        <div class="row g-3 align-items-end">
-            <div class="col-12 col-md-8">
-                <label for="playlistSelect" class="form-label">Current Playlist</label>
-                <select id="playlistSelect" class="form-select">
-                    <option value="">(No playlists available)</option>
-                </select>
-                <div class="form-text">
-                    Select a playlist to edit, or create a new one.
+<div class="card shadow-sm mb-4 m-2 p-2">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center" 
+         style="cursor: pointer;"
+         data-bs-toggle="collapse" 
+         data-bs-target="#playlistCardBody">
+        <div>
+            <strong>Selected playlist:</strong> 
+            <span id="playlistHeaderTitle" class="text-muted">(None selected)</span>
+        </div>
+        <i id="playlistCollapseIcon" class="bi bi-chevron-down"></i>
+    </div>
+    <div class="collapse show" id="playlistCardBody">
+        <div class="card-body">
+            <h2 class="h5 mb-3">Select Playlist</h2>
+            
+            <!-- Dropdown + New Button Row -->
+            <div class="d-flex gap-2 mb-2">
+                <div class="flex-grow-1">
+                    <label for="playlistSelect" class="form-label">Current Playlist</label>
+                    <select id="playlistSelect" class="form-select">
+                        <option value="">(No playlists available)</option>
+                    </select>
+                </div>
+                <div class="d-flex align-items-end">
+                    <button id="newPlaylistBtn" class="btn btn-outline-primary">
+                        New Playlist
+                    </button>
                 </div>
             </div>
-            <div class="col-12 col-md-4 d-flex gap-2 justify-content-md-end">
-                <button id="newPlaylistBtn" class="btn btn-outline-primary w-100 w-md-auto mt-3 mt-md-0">
-                    <i class="bi bi-plus-lg"></i> New Playlist
+            
+            <div class="form-text mb-3">
+                Select a playlist to edit, or create a new one.
+            </div>
+            
+            <!-- Save Button Row -->
+            <div class="d-flex justify-content-end">
+                <button id="saveToStorageBtn" class="btn btn-success" disabled>
+                    Save Changes
                 </button>
             </div>
+            
+            <div id="playlistStatus" class="mt-2 small"></div>
         </div>
-        <div id="playlistStatus" class="mt-2 small"></div>
+    </div>
+    <div id="tracksContainer" class="d-grid gap-3">
+        <div id="noTracksHint" class="text-muted small">
+            No tracks yet. Add one using the field below.
+        </div>
+
+        <!-- Track items will be inserted here -->
+        <div id="tracksList">
+            <!-- Paginated track cards go here -->
+        </div>
+
+        <!-- Pagination Controls -->
+        <div id="paginationControls" class="d-none">
+            <div class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light rounded">
+                <button id="prevPageBtn" class="btn btn-outline-secondary" disabled>
+                    ← Previous
+                </button>
+                <div class="d-flex align-items-center gap-3">
+                    <span class="text-muted">Page</span>
+                    <select id="pageSelect" class="form-select form-select-sm" style="width: auto;">
+                        <option value="1">1</option>
+                    </select>
+                    <span class="text-muted">of <span id="totalPages">1</span></span>
+                </div>
+                <button id="nextPageBtn" class="btn btn-outline-secondary">
+                    Next →
+                </button>
+            </div>
+            <div class="text-center text-muted small mt-2">
+                Showing <span id="pageRangeStart">1</span>-<span id="pageRangeEnd">10</span> of <span id="totalTracks">0</span> tracks
+            </div>
+        </div>
+
+         <div class="card-body">
+                <h2 class="h5 mb-3">Add track by URI or URL</h2>
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-md-8">
+                        <input type="text"
+                               id="spotifyInput"
+                               class="form-control"
+                               placeholder="spotify:track:ID or https://open.spotify.com/track/ID?si=..." />
+                    </div>
+                    <div class="col-12 col-md-4 d-flex justify-content-md-end">
+                        <button id="addTrackBtn" class="btn btn-primary w-100 w-md-auto mt-3 mt-md-0">
+                            Add track
+                        </button>
+                    </div>
+                </div>
+                <div id="builderError" class="text-danger small mt-2"></div>
+            </div>
     </div>
 </div>
+
+<script>
+    // Update collapse icon on toggle
+    document.getElementById('playlistCardBody').addEventListener('shown.bs.collapse', function () {
+        document.getElementById('playlistCollapseIcon').className = 'bi bi-chevron-down';
+    });
+    document.getElementById('playlistCardBody').addEventListener('hidden.bs.collapse', function () {
+        document.getElementById('playlistCollapseIcon').className = 'bi bi-chevron-up';
+    });
+</script>
 
 <!-- New Playlist Modal -->
 <div class="modal fade" id="newPlaylistModal" tabindex="-1" aria-labelledby="newPlaylistModalLabel" aria-hidden="true">

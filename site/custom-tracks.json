@@ -1,0 +1,16 @@
+[
+  {
+    "id": "clip1",
+    "name": "Song #1",
+    "uri": "spotify:track:1FzbOPWCZiNxnLjAhY1jAR",
+    "startMs": 32810,
+    "durationMs": 1020
+  },
+  {
+    "id": "clip2",
+    "name": "Song #2",
+    "uri": "spotify:track:4M6rIVaYyYv891C39hZCao",
+    "startMs": 0,
+    "durationMs": 3730
+  }
+]

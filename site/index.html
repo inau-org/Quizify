@@ -54,14 +54,17 @@
                 onLoad: async () => {
                     const userData = await updateLoginUI(document, auth);
                     await updateDeviceStatusUI(document, auth);
-                    
                 }
             },
             {
                 element: document.getElementById('playlistPager'),
                 template: 'playlist-pager',
                 onLoad: async () => {
-                    await updatePlaylistUI(document, storage);
+                    await updatePlaylistUI(document, auth, storage, { can_edit: false }, {
+                        onPlaylistChanged: (name) => {
+                            console.log("Selected playlist changed to:", name);
+                        }
+                    });
                 }
             }
         ]);
